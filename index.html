@@ -229,21 +229,26 @@
             const btn = document.getElementById(btnId);
             if (!btn) return;
             
-            // pointerdown handles both mouse clicks and finger touches
-            btn.addEventListener('pointerdown', (e) => {
-                e.preventDefault(); 
+            const press = (e) => {
+                // Prevent default stops double-firing and browser gestures
+                if (e.cancelable) e.preventDefault(); 
                 keys[keyStr] = true;
                 if(actionFunc && gameActive) actionFunc();
-            });
+            };
 
-            // release events
             const release = (e) => {
-                e.preventDefault();
+                if (e.cancelable) e.preventDefault();
                 keys[keyStr] = false;
             };
-            btn.addEventListener('pointerup', release);
-            btn.addEventListener('pointercancel', release);
-            btn.addEventListener('pointerout', release); // In case finger slides off the button
+
+            // Explicitly use touchstart/touchend for rock-solid mobile support
+            btn.addEventListener('touchstart', press, {passive: false});
+            btn.addEventListener('mousedown', press);
+
+            btn.addEventListener('touchend', release, {passive: false});
+            btn.addEventListener('touchcancel', release, {passive: false});
+            btn.addEventListener('mouseup', release);
+            btn.addEventListener('mouseleave', release);
         }
 
         bindTouch('btnUp', 'w');
