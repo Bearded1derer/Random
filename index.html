@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitHubPagesGames | Portal</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --card-bg: #161b22;
+            --accent-primary: #58a6ff; /* FabLogic Blue */
+            --accent-secondary: #238636; /* Success Green */
+            --text-main: #c9d1d9;
+            --border-color: #30363d;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+            border-bottom: 2px solid var(--accent-primary);
+            padding-bottom: 10px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            width: 90%;
+            max-width: 800px;
+        }
+
+        .game-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: transform 0.2s, border-color 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            border-color: var(--accent-primary);
+        }
+
+        h2 {
+            font-size: 1.2rem;
+            margin-bottom: 1.5rem;
+            color: #ffffff;
+        }
+
+        .btn {
+            display: inline-block;
+            background-color: var(--accent-secondary);
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: opacity 0.2s;
+        }
+
+        .btn:hover {
+            opacity: 0.8;
+        }
+
+        footer {
+            margin-top: 4rem;
+            font-size: 0.8rem;
+            color: #8b949e;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>AARON'S ARCADE</h1>
+    </header>
+
+    <div class="container">
+        <div class="game-card">
+            <h2>Deep Sea Bot</h2>
+            <p>The Ocean Portal</p>
+            <a href="./Deep_Sea_Bot_The_Ocean_Portal/" class="btn">Launch Game</a>
+        </div>
+
+        <div class="game-card">
+            <h2>Galactic Cat</h2>
+            <p>Zombie Curer</p>
+            <a href="./Galactic_Cat_Zombie_Curer/" class="btn">Launch Game</a>
+        </div>
+    </div>
+
+    <footer>
+        &copy; 2026 Powered by Antimatter Engine concepts
+    </footer>
+
+</body>
+</html>
