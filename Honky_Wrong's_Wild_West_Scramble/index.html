@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Honky Wrong's Wild West Scramble</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #2d1b0d;
+            font-family: 'Courier New', Courier, monospace;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: linear-gradient(to top, #ff9966, #ff5e62);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            background: #8b4513; /* Dirt color */
+            box-shadow: 0 0 50px rgba(0,0,0,0.5);
+            border: 4px solid #4a2c16;
+            image-rendering: pixelated;
+        }
+        .ui-layer {
+            position: absolute;
+            top: 10px;
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: space-between;
+            color: #fff;
+            padding: 0 20px;
+            pointer-events: none;
+            text-shadow: 2px 2px 0 #000;
+        }
+        #overlay {
+            position: absolute;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 10;
+        }
+        .btn {
+            background: #d4a017;
+            padding: 10px 30px;
+            border: 4px solid #8b4513;
+            color: #3d2109;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            font-size: 1.5rem;
+        }
+        .btn:hover { background: #ffcc33; }
+        
+        /* Mobile Control Styling */
+        .mobile-controls {
+            position: absolute;
+            bottom: 40px;
+            width: 100%;
+            display: none;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding: 0 40px;
+            pointer-events: none;
+        }
+        @media (max-height: 600px), (pointer: coarse) { 
+            .mobile-controls { display: flex; } 
+        }
+
+        /* Joystick Styles */
+        #joystick-base {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+        #joystick-knob {
+            width: 50px;
+            height: 50px;
+            background: rgba(212, 160, 23, 0.8);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+        }
+
+        .control-btn {
+            width: 80px;
+            height: 80px;
+            background: rgba(212, 160, 23, 0.6);
+            border: 3px solid #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.2rem;
+            color: white;
+            font-weight: bold;
+            user-select: none;
+            pointer-events: auto;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+        .control-btn:active {
+            transform: scale(0.9);
+            background: rgba(212, 160, 23, 0.9);
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+    
+    <div class="ui-layer">
+        <div id="health-ui">HEALTH: ❤️❤️❤️</div>
+        <div id="score-ui">TOP: 🐴 GOLDEN SHOE</div>
+    </div>
+
+    <div id="overlay">
+        <h1 class="text-4xl font-bold mb-2 text-center">HONKY WRONG'S</h1>
+        <h2 class="text-2xl mb-6">WILD WEST SCRAMBLE</h2>
+        <p class="text-center px-6 text-gray-300">
+            Honky Wrong is throwing armadillos! <br>
+            Guide "Tumble-Tom" to the top to get the Golden Horseshoe.
+        </p>
+        <div class="mt-4 text-sm text-yellow-500 text-center">
+            Joystick to Move & Climb • JUMP Button to Leap
+        </div>
+        <button class="btn" onclick="startGame()">SADDLE UP!</button>
+    </div>
+
+    <div class="mobile-controls">
+        <!-- Joystick on the Left -->
+        <div id="joystick-base">
+            <div id="joystick-knob"></div>
+        </div>
+        <!-- Jump on the Right -->
+        <div class="control-btn" id="m-jump">JUMP</div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const overlay = document.getElementById('overlay');
+    const healthUI = document.getElementById('health-ui');
+
+    // Game Constants
+    const GW = 600;
+    const GH = 800;
+    const GRAVITY = 0.5;
+    const JUMP_FORCE = -8;
+    const WALK_SPEED = 3.5;
+
+    let gameActive = false;
+    let keys = {};
+    let health = 3;
+    let armadillos = [];
+    let lastArmadilloSpawn = 0;
+
+    // Game Entities
+    let player = {
+        x: 50,
+        y: GH - 60,
+        w: 30,
+        h: 30,
+        vx: 0,
+        vy: 0,
+        onGround: false,
+        onLadder: false,
+        isJumping: false,
+        rotation: 0
+    };
+
+    const platforms = [
+        { x: 0, y: 780, w: 600, h: 20 }, // Ground
+        { x: 0, y: 650, w: 500, h: 20 },
+        { x: 100, y: 520, w: 500, h: 20 },
+        { x: 0, y: 390, w: 500, h: 20 },
+        { x: 100, y: 260, w: 500, h: 20 },
+        { x: 0, y: 130, w: 400, h: 20 }  // Top
+    ];
+
+    const ladders = [
+        { x: 450, y: 650, w: 30, h: 130 },
+        { x: 120, y: 520, w: 30, h: 130 },
+        { x: 450, y: 390, w: 30, h: 130 },
+        { x: 120, y: 260, w: 30, h: 130 },
+        { x: 350, y: 130, w: 30, h: 130 }
+    ];
+
+    function init() {
+        resizeCanvas();
+        window.addEventListener('resize', resizeCanvas);
+        
+        window.addEventListener('keydown', e => keys[e.code] = true);
+        window.addEventListener('keyup', e => keys[e.code] = false);
+
+        setupJoystick();
+        
+        const jumpBtn = document.getElementById('m-jump');
+        jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; });
+        jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; });
+
+        draw();
+    }
+
+    function resizeCanvas() {
+        // Handle vertical scaling to fit screen if needed
+        const scale = Math.min(window.innerWidth / GW, window.innerHeight / GH);
+        canvas.style.width = (GW * scale * 0.9) + 'px';
+        canvas.style.height = (GH * scale * 0.9) + 'px';
+        canvas.width = GW;
+        canvas.height = GH;
+    }
+
+    function setupJoystick() {
+        const base = document.getElementById('joystick-base');
+        const knob = document.getElementById('joystick-knob');
+        const limit = 50; // Max distance for knob
+        let activeTouchId = null;
+
+        const handleMove = (clientX, clientY) => {
+            const rect = base.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > limit) {
+                dx *= limit / distance;
+                dy *= limit / distance;
+            }
+
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            // Map to keys
+            const threshold = 15;
+            keys['ArrowLeft'] = dx < -threshold;
+            keys['ArrowRight'] = dx > threshold;
+            keys['ArrowUp'] = dy < -threshold;
+            keys['ArrowDown'] = dy > threshold;
+        };
+
+        base.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            activeTouchId = e.changedTouches[0].identifier;
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (activeTouchId === null) return;
+            for (let touch of e.changedTouches) {
+                if (touch.identifier === activeTouchId) {
+                    handleMove(touch.clientX, touch.clientY);
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            for (let touch of e.changedTouches) {
+                if (touch.identifier === activeTouchId) {
+                    activeTouchId = null;
+                    knob.style.transform = `translate(0, 0)`;
+                    keys['ArrowLeft'] = false;
+                    keys['ArrowRight'] = false;
+                    keys['ArrowUp'] = false;
+                    keys['ArrowDown'] = false;
+                }
+            }
+        });
+    }
+
+    function startGame() {
+        health = 3;
+        armadillos = [];
+        player.x = 50;
+        player.y = GH - 60;
+        player.vx = 0;
+        player.vy = 0;
+        overlay.style.display = 'none';
+        updateHealthUI();
+        gameActive = true;
+        requestAnimationFrame(gameLoop);
+    }
+
+    function updateHealthUI() {
+        let h = "HEALTH: ";
+        for(let i=0; i<3; i++) h += (i < health) ? "❤️" : "🖤";
+        healthUI.innerText = h;
+    }
+
+    function spawnArmadillo() {
+        if (Date.now() - lastArmadilloSpawn > 3000) {
+            armadillos.push({
+                x: 50,
+                y: 110,
+                w: 25,
+                h: 25,
+                vx: 3,
+                vy: 0,
+                rotation: 0
+            });
+            lastArmadilloSpawn = Date.now();
+        }
+    }
+
+    function update() {
+        // Player Movement
+        if (keys['ArrowLeft'] || keys['KeyA']) {
+            player.vx = -WALK_SPEED;
+            player.rotation -= 0.2;
+        } else if (keys['ArrowRight'] || keys['KeyD']) {
+            player.vx = WALK_SPEED;
+            player.rotation += 0.2;
+        } else {
+            player.vx = 0;
+        }
+
+        // Ladder Detection
+        player.onLadder = false;
+        ladders.forEach(l => {
+            if (player.x + player.w > l.x && player.x < l.x + l.w &&
+                player.y + player.h > l.y && player.y < l.y + l.h) {
+                player.onLadder = true;
+            }
+        });
+
+        if (player.onLadder) {
+            player.vy = 0;
+            if (keys['ArrowUp'] || keys['KeyW']) player.vy = -3;
+            if (keys['ArrowDown'] || keys['KeyS']) player.vy = 3;
+        } else {
+            player.vy += GRAVITY;
+        }
+
+        if (keys['Space'] && player.onGround && !player.onLadder) {
+            player.vy = JUMP_FORCE;
+            player.onGround = false;
+        }
+
+        player.x += player.vx;
+        player.y += player.vy;
+
+        // Platform Collisions
+        player.onGround = false;
+        platforms.forEach(p => {
+            if (player.x + player.w > p.x && player.x < p.x + p.w &&
+                player.y + player.h > p.y && player.y + player.h < p.y + p.h + player.vy) {
+                if (player.vy > 0) {
+                    player.y = p.y - player.h;
+                    player.vy = 0;
+                    player.onGround = true;
+                }
+            }
+        });
+
+        // Bound check
+        if (player.x < 0) player.x = 0;
+        if (player.x > GW - player.w) player.x = GW - player.w;
+
+        // Armadillo Update
+        spawnArmadillo();
+        armadillos.forEach((a, index) => {
+            a.x += a.vx;
+            a.vy += GRAVITY;
+            a.rotation += 0.3;
+
+            platforms.forEach(p => {
+                if (a.x + a.w > p.x && a.x < p.x + p.w &&
+                    a.y + a.h > p.y && a.y + a.h < p.y + p.h + a.vy) {
+                    if (a.vy >= 0) {
+                        a.y = p.y - a.h;
+                        a.vy = 0;
+                    }
+                }
+            });
+
+            if (a.x <= 0 || a.x >= GW - a.w) a.vx *= -1;
+
+            const dx = (a.x + a.w/2) - (player.x + player.w/2);
+            const dy = (a.y + a.h/2) - (player.y + player.h/2);
+            const dist = Math.sqrt(dx*dx + dy*dy);
+            if (dist < 25) {
+                health--;
+                updateHealthUI();
+                armadillos.splice(index, 1);
+                if (health <= 0) endGame("The tumbleweed was squashed!");
+            }
+
+            if (a.y > GH) armadillos.splice(index, 1);
+        });
+
+        // Win condition
+        if (player.y < 50 && player.x < 150) {
+            endGame("YOU GOT THE GOLDEN SHOE!", true);
+        }
+    }
+
+    function endGame(msg, win = false) {
+        gameActive = false;
+        overlay.style.display = 'flex';
+        overlay.querySelector('h1').innerText = win ? "YEE-HAW!" : "BUMMER!";
+        overlay.querySelector('h2').innerText = win ? "VICTORY" : "GAME OVER";
+        overlay.querySelector('p').innerText = msg;
+        overlay.querySelector('button').innerText = "PLAY AGAIN";
+    }
+
+    function draw() {
+        ctx.clearRect(0,0,GW,GH);
+        // Sky
+        const sky = ctx.createLinearGradient(0, 0, 0, GH);
+        sky.addColorStop(0, '#ff5e62');
+        sky.addColorStop(1, '#ff9966');
+        ctx.fillStyle = sky;
+        ctx.fillRect(0, 0, GW, GH);
+
+        // Sun
+        ctx.fillStyle = '#ffff00';
+        ctx.beginPath();
+        ctx.arc(500, 100, 40, 0, Math.PI*2);
+        ctx.fill();
+
+        // Platforms
+        ctx.fillStyle = '#4a2c16';
+        platforms.forEach(p => {
+            ctx.fillRect(p.x, p.y, p.w, p.h);
+            ctx.fillStyle = '#5d3a1a';
+            for(let i=0; i<p.w; i+=40) ctx.fillRect(p.x + i, p.y, 2, p.h);
+            ctx.fillStyle = '#4a2c16';
+        });
+
+        // Ladders
+        ctx.fillStyle = '#d2b48c';
+        ladders.forEach(l => {
+            ctx.fillRect(l.x, l.y, 5, l.h);
+            ctx.fillRect(l.x + l.w - 5, l.y, 5, l.h);
+            for (let i = 0; i < l.h; i += 20) {
+                ctx.fillRect(l.x, l.y + i, l.w, 4);
+            }
+        });
+
+        // Honky Wrong
+        ctx.font = '60px serif';
+        ctx.fillText('🤠', 20, 115);
+        ctx.font = '20px sans-serif';
+        ctx.fillStyle = '#fff';
+        ctx.fillText('HONKY WRONG', 10, 50);
+
+        // Golden Shoe
+        ctx.font = '40px serif';
+        ctx.fillText('🐴✨', 40, 70);
+
+        // Armadillos
+        armadillos.forEach(a => {
+            ctx.save();
+            ctx.translate(a.x + a.w/2, a.y + a.h/2);
+            ctx.rotate(a.rotation);
+            ctx.font = '30px serif';
+            ctx.fillText('🦔', -15, 10);
+            ctx.restore();
+        });
+
+        // Player (Tumble-Tom)
+        ctx.save();
+        ctx.translate(player.x + player.w/2, player.y + player.h/2);
+        ctx.rotate(player.rotation);
+        ctx.font = '35px serif';
+        ctx.fillText('🌿', -17, 12);
+        ctx.font = '15px serif';
+        ctx.fillText('🤠', -10, -5);
+        ctx.restore();
+
+        if (!gameActive) return;
+        requestAnimationFrame(draw);
+    }
+
+    function gameLoop() {
+        if (!gameActive) return;
+        update();
+    }
+
+    init();
+    setInterval(gameLoop, 1000/60);
+</script>
+</body>
+</html>

@@ -3,110 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GitHubPagesGames | Portal</title>
+    <title>Aaron's Arcade | Game Portal</title>
     <style>
         :root {
             --bg-color: #0d1117;
             --card-bg: #161b22;
-            --accent-primary: #58a6ff; /* FabLogic Blue */
-            --accent-secondary: #238636; /* Success Green */
+            --accent-primary: #58a6ff; 
+            --accent-secondary: #238636;
             --text-main: #c9d1d9;
+            --text-muted: #8b949e;
             --border-color: #30363d;
+            --hover-shadow: 0 8px 24px rgba(0,0,0,0.5);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
         }
 
         body {
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            line-height: 1.6;
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             min-height: 100vh;
-            margin: 0;
+            padding: 2rem 1rem;
         }
 
         header {
             text-align: center;
-            margin-bottom: 3rem;
-            border-bottom: 2px solid var(--accent-primary);
-            padding-bottom: 10px;
+            margin-bottom: 4rem;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            letter-spacing: -1px;
+            color: #ffffff;
+            margin-bottom: 0.5rem;
+            text-transform: uppercase;
+        }
+
+        .subtitle {
+            color: var(--accent-primary);
+            font-weight: 600;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
         }
 
         .container {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 20px;
-            width: 90%;
-            max-width: 800px;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 24px;
+            width: 100%;
+            max-width: 1000px;
         }
 
         .game-card {
             background: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 2rem;
+            border-radius: 12px;
+            padding: 2.5rem 1.5rem;
             text-align: center;
-            transition: transform 0.2s, border-color 0.2s;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
         }
 
         .game-card:hover {
-            transform: translateY(-5px);
+            transform: translateY(-8px);
             border-color: var(--accent-primary);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .game-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: transparent;
+            transition: background 0.3s;
+        }
+
+        .game-card:hover::before {
+            background: var(--accent-primary);
         }
 
         h2 {
-            font-size: 1.2rem;
-            margin-bottom: 1.5rem;
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
             color: #ffffff;
         }
 
+        .game-desc {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            margin-bottom: 2rem;
+            font-style: italic;
+        }
+
         .btn {
-            display: inline-block;
+            display: block;
             background-color: var(--accent-secondary);
             color: white;
             text-decoration: none;
-            padding: 10px 20px;
+            padding: 12px 24px;
             border-radius: 6px;
             font-weight: bold;
+            font-size: 0.9rem;
             text-transform: uppercase;
             letter-spacing: 1px;
-            transition: opacity 0.2s;
+            transition: transform 0.2s, background-color 0.2s;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
         .btn:hover {
-            opacity: 0.8;
+            background-color: #2ea043;
+            transform: scale(1.02);
+        }
+
+        .btn:active {
+            transform: scale(0.98);
         }
 
         footer {
-            margin-top: 4rem;
+            margin-top: auto;
+            padding-top: 4rem;
+            text-align: center;
             font-size: 0.8rem;
-            color: #8b949e;
+            color: var(--text-muted);
+            width: 100%;
+        }
+
+        /* Highlighting the newest game if needed */
+        .new-tag {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: var(--accent-primary);
+            color: var(--bg-color);
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 800;
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.8rem; }
+            .container { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
     <header>
+        <p class="subtitle">Multi-Page Repository Portal</p>
         <h1>AARON'S ARCADE</h1>
     </header>
 
     <div class="container">
+        <!-- Deep Sea Bot -->
         <div class="game-card">
-            <h2>Deep Sea Bot</h2>
-            <p>The Ocean Portal</p>
+            <div>
+                <h2>Deep Sea Bot</h2>
+                <p class="game-desc">The Ocean Portal</p>
+            </div>
             <a href="./Deep_Sea_Bot_The_Ocean_Portal/" class="btn">Launch Game</a>
         </div>
 
+        <!-- Galactic Cat -->
         <div class="game-card">
-            <h2>Galactic Cat</h2>
-            <p>Zombie Curer</p>
+            <div>
+                <h2>Galactic Cat</h2>
+                <p class="game-desc">Zombie Curer</p>
+            </div>
             <a href="./Galactic_Cat_Zombie_Curer/" class="btn">Launch Game</a>
+        </div>
+
+        <!-- Honky Wrong -->
+        <div class="game-card">
+            <span class="new-tag">NEW</span>
+            <div>
+                <h2>Honky Wrong's</h2>
+                <p class="game-desc">Wild West Scramble</p>
+            </div>
+            <a href="./Honky_Wrong's_Wild_West_Scramble/" class="btn">Launch Game</a>
         </div>
     </div>
 
     <footer>
-        &copy; 2026 Powered by Antimatter Engine concepts
+        &copy; 2026 Developed with Antimatter Logic &bull; Built for GitHub Pages
     </footer>
 
 </body>

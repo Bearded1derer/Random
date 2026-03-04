@@ -88,13 +88,33 @@
             pointer-events: none;
             z-index: 10;
         }
-        .dpad {
-            display: grid;
-            grid-template-columns: 60px 60px 60px;
-            grid-template-rows: 60px 60px;
-            gap: 10px;
-            padding-left: 20px;
+        #joystickZone {
+            width: 150px;
+            height: 150px;
+            position: relative;
             pointer-events: auto;
+            margin-left: 10px;
+            touch-action: none;
+        }
+        #joystickBase {
+            width: 120px;
+            height: 120px;
+            background: rgba(255, 255, 255, 0.15);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            position: absolute;
+            top: 15px;
+            left: 15px;
+        }
+        #joystickKnob {
+            width: 50px;
+            height: 50px;
+            background: rgba(0, 255, 204, 0.7);
+            border-radius: 50%;
+            position: absolute;
+            top: 35px;
+            left: 35px;
+            pointer-events: none;
         }
         .actions {
             display: flex;
@@ -117,22 +137,12 @@
         .touch-btn:active {
             background: rgba(255, 255, 255, 0.4);
         }
-        .dpad-btn {
-            width: 100%;
-            height: 100%;
-            border-radius: 10px;
-            font-size: 24px;
-        }
         .action-btn {
             width: 70px;
             height: 70px;
             border-radius: 50%;
             font-size: 30px;
         }
-        #btnUp { grid-column: 2; grid-row: 1; }
-        #btnLeft { grid-column: 1; grid-row: 2; }
-        #btnDown { grid-column: 2; grid-row: 2; }
-        #btnRight { grid-column: 3; grid-row: 2; }
 
         @media (max-width: 600px) {
             #controlsHelp { display: none; } /* Hide text help on small screens */
@@ -158,11 +168,10 @@
 
     <!-- Mobile Touch Controls overlay -->
     <div id="touchControls">
-        <div class="dpad">
-            <div id="btnUp" class="touch-btn dpad-btn">▲</div>
-            <div id="btnLeft" class="touch-btn dpad-btn">◀</div>
-            <div id="btnDown" class="touch-btn dpad-btn">▼</div>
-            <div id="btnRight" class="touch-btn dpad-btn">▶</div>
+        <div id="joystickZone">
+            <div id="joystickBase">
+                <div id="joystickKnob"></div>
+            </div>
         </div>
         <div class="actions">
             <div id="btnSword" class="touch-btn action-btn">⚔️</div>
@@ -251,10 +260,78 @@
             btn.addEventListener('mouseleave', release);
         }
 
-        bindTouch('btnUp', 'w');
-        bindTouch('btnDown', 's');
-        bindTouch('btnLeft', 'a');
-        bindTouch('btnRight', 'd');
+        // Joystick Setup
+        const joystick = { x: 0, y: 0, active: false };
+        const joyZone = document.getElementById('joystickZone');
+        const joyKnob = document.getElementById('joystickKnob');
+        let joyCenterX = 0;
+        let joyCenterY = 0;
+        const maxRadius = 35; // How far the knob can move from center
+        let isDraggingJoy = false;
+
+        function updateJoystickCenter() {
+            const rect = joyZone.getBoundingClientRect();
+            joyCenterX = rect.left + rect.width / 2;
+            joyCenterY = rect.top + rect.height / 2;
+        }
+
+        function handleJoystickMove(clientX, clientY) {
+            let dx = clientX - joyCenterX;
+            let dy = clientY - joyCenterY;
+            let distance = Math.hypot(dx, dy);
+            
+            // Limit knob to the base radius
+            if (distance > maxRadius) {
+                dx = (dx / distance) * maxRadius;
+                dy = (dy / distance) * maxRadius;
+            }
+            
+            // Move knob visually
+            joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            
+            // Normalize -1.0 to 1.0 for player movement calculation
+            joystick.x = dx / maxRadius;
+            joystick.y = dy / maxRadius;
+        }
+
+        const startJoystick = (e) => {
+            if (e.cancelable) e.preventDefault();
+            joystick.active = true;
+            isDraggingJoy = true;
+            updateJoystickCenter();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            handleJoystickMove(clientX, clientY);
+        };
+
+        const moveJoystick = (e) => {
+            if (!joystick.active) return;
+            if (e.cancelable) e.preventDefault();
+            let clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            let clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            handleJoystickMove(clientX, clientY);
+        };
+
+        const resetJoystick = (e) => {
+            if (e && e.cancelable) e.preventDefault();
+            joystick.active = false;
+            isDraggingJoy = false;
+            joystick.x = 0;
+            joystick.y = 0;
+            joyKnob.style.transform = `translate(0px, 0px)`;
+        };
+
+        // Touch Listeners
+        joyZone.addEventListener('touchstart', startJoystick, {passive: false});
+        joyZone.addEventListener('touchmove', moveJoystick, {passive: false});
+        joyZone.addEventListener('touchend', resetJoystick, {passive: false});
+        joyZone.addEventListener('touchcancel', resetJoystick, {passive: false});
+        
+        // Mouse Listeners (for testing on PC!)
+        joyZone.addEventListener('mousedown', startJoystick);
+        window.addEventListener('mousemove', moveJoystick);
+        window.addEventListener('mouseup', resetJoystick);
+
         bindTouch('btnKnife', ' ', shootKnife);
         bindTouch('btnSword', 'z', swingSword);
 
@@ -384,11 +461,16 @@
 
             frameCount++;
 
-            // Player Movement
-            if (keys.w || keys.ArrowUp) cat.y -= cat.speed;
-            if (keys.s || keys.ArrowDown) cat.y += cat.speed;
-            if (keys.a || keys.ArrowLeft) cat.x -= cat.speed;
-            if (keys.d || keys.ArrowRight) cat.x += cat.speed;
+            // Player Movement (Handles Joystick or Keyboard)
+            if (joystick.active) {
+                cat.x += joystick.x * cat.speed;
+                cat.y += joystick.y * cat.speed;
+            } else {
+                if (keys.w || keys.ArrowUp) cat.y -= cat.speed;
+                if (keys.s || keys.ArrowDown) cat.y += cat.speed;
+                if (keys.a || keys.ArrowLeft) cat.x -= cat.speed;
+                if (keys.d || keys.ArrowRight) cat.x += cat.speed;
+            }
 
             // Keep cat on screen
             cat.x = Math.max(cat.size, Math.min(canvas.width - cat.size, cat.x));
@@ -564,7 +646,7 @@
             ctx.font = "45px Arial";
             
             // Add a little jetpack flame when moving
-            if (keys.w || keys.a || keys.s || keys.d || keys.ArrowUp || keys.ArrowLeft || keys.ArrowDown || keys.ArrowRight) {
+            if (keys.w || keys.a || keys.s || keys.d || keys.ArrowUp || keys.ArrowLeft || keys.ArrowDown || keys.ArrowRight || joystick.active) {
                 createParticles(cat.x - 20, cat.y + 10, 1, '#00ccff'); 
             }
             

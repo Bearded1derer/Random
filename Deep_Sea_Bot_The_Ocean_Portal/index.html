@@ -85,39 +85,59 @@
         
         .mobile-controls {
             position: absolute;
-            bottom: 20px;
+            bottom: 40px;
             width: 100%;
             display: none;
             justify-content: space-between;
-            padding: 0 30px;
+            align-items: flex-end;
+            padding: 0 40px;
             pointer-events: none;
         }
-        @media (max-width: 768px) {
+        @media (max-width: 1024px) {
             .mobile-controls { display: flex; }
             .controls-hint { display: none; }
         }
+
+        /* Joystick Styles */
+        #joystick-base {
+            width: 130px;
+            height: 130px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 3px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            position: relative;
+            pointer-events: auto;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            touch-action: none;
+        }
+        #joystick-knob {
+            width: 55px;
+            height: 55px;
+            background: rgba(0, 242, 255, 0.6);
+            border: 2px solid #fff;
+            border-radius: 50%;
+            position: absolute;
+            pointer-events: none;
+            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
+        }
+
         .touch-btn {
-            width: 70px;
-            height: 70px;
-            background: rgba(255,255,255,0.2);
+            width: 80px;
+            height: 80px;
+            background: rgba(255,255,255,0.15);
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1.5rem;
+            font-size: 1.8rem;
             pointer-events: auto;
             user-select: none;
-            border: 2px solid rgba(255,255,255,0.3);
+            border: 2px solid rgba(255,255,255,0.4);
+            backdrop-filter: blur(4px);
         }
         .hidden { display: none !important; }
-
-        /* Bubble animation */
-        .bubble {
-            position: absolute;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            pointer-events: none;
-        }
     </style>
 </head>
 <body>
@@ -140,10 +160,10 @@
         <h1 class="text-5xl font-black mb-4 text-blue-400">DEEP SEA BOT</h1>
         <p class="max-w-md mb-6 italic text-gray-300">Navigate the abyss, defeat the Ocean Guardian, and escape through the Magical Portal.</p>
         <div class="grid grid-cols-2 gap-4 text-sm mb-6 text-left bg-blue-900/40 p-4 rounded-xl">
-            <div>🔱 <b>Trident:</b> Space / Tap Screen</div>
-            <div>💣 <b>Sea Bomb:</b> Shift / B Button</div>
+            <div>🔱 <b>Trident:</b> Space / Tap 🔱</div>
+            <div>💣 <b>Sea Bomb:</b> Shift / Tap 💣</div>
             <div>🦈 <b>Pet Shark:</b> Automatic Support</div>
-            <div>🕹️ <b>Move:</b> Arrows / WASD / Drag</div>
+            <div>🕹️ <b>Move:</b> WASD / Joystick</div>
         </div>
         <button class="btn" onclick="startGame()">ENTER THE DEPTHS</button>
     </div>
@@ -155,17 +175,15 @@
     </div>
 
     <div class="mobile-controls">
-        <div class="flex gap-4">
-            <div class="touch-btn" id="ctrl-left">⬅️</div>
-            <div class="touch-btn" id="ctrl-right">➡️</div>
-            <div class="flex flex-col gap-2">
-                <div class="touch-btn" id="ctrl-up">⬆️</div>
-                <div class="touch-btn" id="ctrl-down">⬇️</div>
-            </div>
+        <!-- New Joystick -->
+        <div id="joystick-base">
+            <div id="joystick-knob"></div>
         </div>
-        <div class="flex gap-4 items-end">
+        
+        <!-- Action Buttons -->
+        <div class="flex flex-col gap-6">
             <div class="touch-btn btn-bomb" id="ctrl-bomb">💣</div>
-            <div class="touch-btn" style="width: 90px; height: 90px; background: rgba(0, 119, 190, 0.6);" id="ctrl-shoot">🔱</div>
+            <div class="touch-btn" style="width: 100px; height: 100px; background: rgba(0, 119, 190, 0.6);" id="ctrl-shoot">🔱</div>
         </div>
     </div>
 
@@ -236,16 +254,72 @@
         window.addEventListener('keydown', e => keys[e.code] = true);
         window.addEventListener('keyup', e => keys[e.code] = false);
 
-        // Mobile touch controls
-        setupTouchBtn('ctrl-left', 'ArrowLeft');
-        setupTouchBtn('ctrl-right', 'ArrowRight');
-        setupTouchBtn('ctrl-up', 'ArrowUp');
-        setupTouchBtn('ctrl-down', 'ArrowDown');
+        // Mobile joystick and buttons
+        setupJoystick();
         setupTouchBtn('ctrl-shoot', 'Space');
         setupTouchBtn('ctrl-bomb', 'ShiftLeft');
 
         // Initial bubbles
         for(let i=0; i<20; i++) spawnBubble(true);
+    }
+
+    function setupJoystick() {
+        const base = document.getElementById('joystick-base');
+        const knob = document.getElementById('joystick-knob');
+        const limit = 55; 
+        let activeTouchId = null;
+
+        const handleMove = (clientX, clientY) => {
+            const rect = base.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            let dx = clientX - centerX;
+            let dy = clientY - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance > limit) {
+                dx *= limit / distance;
+                dy *= limit / distance;
+            }
+
+            knob.style.transform = `translate(${dx}px, ${dy}px)`;
+
+            // Map to keys for compatibility with existing update logic
+            const threshold = 15;
+            keys['ArrowLeft'] = dx < -threshold;
+            keys['ArrowRight'] = dx > threshold;
+            keys['ArrowUp'] = dy < -threshold;
+            keys['ArrowDown'] = dy > threshold;
+        };
+
+        base.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            activeTouchId = e.changedTouches[0].identifier;
+            handleMove(e.touches[0].clientX, e.touches[0].clientY);
+        });
+
+        window.addEventListener('touchmove', (e) => {
+            if (activeTouchId === null) return;
+            for (let touch of e.changedTouches) {
+                if (touch.identifier === activeTouchId) {
+                    handleMove(touch.clientX, touch.clientY);
+                }
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchend', (e) => {
+            for (let touch of e.changedTouches) {
+                if (touch.identifier === activeTouchId) {
+                    activeTouchId = null;
+                    knob.style.transform = `translate(0, 0)`;
+                    keys['ArrowLeft'] = false;
+                    keys['ArrowRight'] = false;
+                    keys['ArrowUp'] = false;
+                    keys['ArrowDown'] = false;
+                }
+            }
+        });
     }
 
     function setupTouchBtn(id, code) {
@@ -369,7 +443,6 @@
             b.timer--;
             if (b.timer <= 0) {
                 createExplosion(b.x, b.y, '#ffaa00', 30);
-                // AOE Damage
                 enemies.forEach(e => {
                     const dist = Math.hypot(e.x + e.w/2 - b.x, e.y + e.h/2 - b.y);
                     if (dist < 150) e.hp -= 5;
@@ -393,7 +466,6 @@
                 e.x += (canvas.width * 0.7 - e.x) * 0.02;
                 e.y += Math.sin(Date.now() / 1000) * 2;
                 
-                // Boss attack
                 if (Date.now() - e.lastShot > 1500) {
                     for(let i=0; i<3; i++) {
                         enemies.push({
@@ -408,7 +480,6 @@
                 if (e.type === 'puffer') e.y += Math.sin(Date.now() / 300 + e.sin) * 2;
             }
 
-            // Collision: Trident -> Enemy
             tridents.forEach((t, tidx) => {
                 if (t.x > e.x && t.x < e.x + e.w && t.y > e.y && t.y < e.y + e.h) {
                     e.hp--;
@@ -417,11 +488,10 @@
                 }
             });
 
-            // Collision: Player -> Enemy
             if (player.x < e.x + e.w && player.x + player.w > e.x && player.y < e.y + e.h && player.y + player.h > e.y) {
                 if (!player.invuln) {
                     takeDamage();
-                    if (e.type !== 'boss') e.hp = 0; // Destroy normal enemy on impact
+                    if (e.type !== 'boss') e.hp = 0; 
                 }
             }
 
@@ -441,7 +511,6 @@
             }
         });
 
-        // Portal logic
         if (portalOpen) {
             const portalX = canvas.width - 150;
             const portalY = canvas.height / 2;
@@ -451,13 +520,11 @@
 
         enemies = enemies.filter(e => e.x > -300);
 
-        // Update UI
         killCounter.innerText = kills;
         const bombCd = Math.max(0, CONFIG.bombCooldown - (Date.now() - player.lastBomb));
         petStatus.innerText = bombCd === 0 ? "BOMB READY" : `RELOADING...`;
         petStatus.style.color = bombCd === 0 ? "#4ade80" : "#94a3b8";
 
-        // Update Particles
         particles.forEach(p => {
             p.x += p.vx;
             p.y += p.vy;
@@ -471,7 +538,7 @@
         player.invuln = true;
         setTimeout(() => player.invuln = false, 1500);
         updateHeartsUI();
-        if (health <= 0) endGame(false);
+        if (health <= 0) endGame();
     }
 
     function updateHeartsUI() {
@@ -485,15 +552,13 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        // Bubbles
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
         bubbles.forEach(b => {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
             ctx.beginPath();
             ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
             ctx.fill();
         });
 
-        // Portal
         if (portalOpen) {
             const time = Date.now() / 500;
             const grad = ctx.createRadialGradient(canvas.width - 150, canvas.height/2, 10, canvas.width - 150, canvas.height/2, 120);
@@ -508,11 +573,9 @@
             ctx.fillText('🌀', canvas.width - 175, canvas.height/2 + 15);
         }
 
-        // Enemies
         enemies.forEach(e => {
             ctx.save();
             if (e.type === 'boss') {
-                // Boss Health Bar
                 ctx.fillStyle = 'rgba(0,0,0,0.5)';
                 ctx.fillRect(e.x, e.y - 30, e.w, 10);
                 ctx.fillStyle = '#ff0000';
@@ -538,26 +601,22 @@
             ctx.restore();
         });
 
-        // Pet
         ctx.save();
         ctx.font = '60px serif';
         ctx.translate(pet.x, pet.y + 30);
-        ctx.scale(-1, 1); // Flip shark to face right
+        ctx.scale(-1, 1); 
         ctx.fillText('🦈', -60, 10);
         ctx.restore();
         ctx.fillStyle = '#00f2ff';
         ctx.font = '10px sans-serif';
         ctx.fillText('COMPANION UNIT', pet.x, pet.y);
 
-        // Player
         ctx.save();
         if (player.invuln && Math.floor(Date.now() / 100) % 2 === 0) ctx.globalAlpha = 0.3;
         ctx.font = '60px serif';
         ctx.fillText('🤖', player.x, player.y + 50);
         ctx.restore();
 
-        // Projectiles
-        ctx.fillStyle = '#f0f';
         tridents.forEach(t => {
             ctx.font = '30px serif';
             ctx.fillText(t.isPet ? '⚡' : '🔱', t.x, t.y);
@@ -568,7 +627,6 @@
             ctx.fillText('💣', b.x, b.y);
         });
 
-        // Particles
         particles.forEach(p => {
             ctx.globalAlpha = p.life;
             ctx.fillStyle = p.color;
@@ -592,7 +650,7 @@
         document.getElementById('result-msg').innerText = "You traversed the abyss and reached the portal!";
     }
 
-    function endGame(win) {
+    function endGame() {
         gameActive = false;
         gameOverOverlay.classList.remove('hidden');
         document.getElementById('result-title').innerText = "UNIT DISABLED";
