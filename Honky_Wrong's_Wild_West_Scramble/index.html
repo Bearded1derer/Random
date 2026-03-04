@@ -122,6 +122,27 @@
             transform: scale(0.9);
             background: rgba(212, 160, 23, 0.9);
         }
+
+        /* Large Touch Screen Optimization (e.g., Z Fold Inner Screen) */
+        @media (min-width: 600px) and (pointer: coarse) {
+            .mobile-controls {
+                padding: 0 10vw; /* Push controls out to the physical edges */
+                bottom: 5vh;
+            }
+            #joystick-base {
+                width: 150px;
+                height: 150px;
+            }
+            #joystick-knob {
+                width: 65px;
+                height: 65px;
+            }
+            .control-btn {
+                width: 100px;
+                height: 100px;
+                font-size: 1.5rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -220,14 +241,15 @@
         jumpBtn.addEventListener('touchstart', (e) => { e.preventDefault(); keys['Space'] = true; });
         jumpBtn.addEventListener('touchend', (e) => { e.preventDefault(); keys['Space'] = false; });
 
-        draw();
+        // Start the unified game loop
+        requestAnimationFrame(gameLoop);
     }
 
     function resizeCanvas() {
-        // Handle vertical scaling to fit screen if needed
+        // Scale to 100% of available bounds (removed 0.9 multiplier)
         const scale = Math.min(window.innerWidth / GW, window.innerHeight / GH);
-        canvas.style.width = (GW * scale * 0.9) + 'px';
-        canvas.style.height = (GH * scale * 0.9) + 'px';
+        canvas.style.width = Math.floor(GW * scale) + 'px';
+        canvas.style.height = Math.floor(GH * scale) + 'px';
         canvas.width = GW;
         canvas.height = GH;
     }
@@ -235,7 +257,7 @@
     function setupJoystick() {
         const base = document.getElementById('joystick-base');
         const knob = document.getElementById('joystick-knob');
-        const limit = 50; // Max distance for knob
+        const limit = 50; 
         let activeTouchId = null;
 
         const handleMove = (clientX, clientY) => {
@@ -254,7 +276,6 @@
 
             knob.style.transform = `translate(${dx}px, ${dy}px)`;
 
-            // Map to keys
             const threshold = 15;
             keys['ArrowLeft'] = dx < -threshold;
             keys['ArrowRight'] = dx > threshold;
@@ -292,16 +313,27 @@
     }
 
     function startGame() {
+        // Request Fullscreen to hide the browser UI
+        const elem = document.documentElement;
+        if (elem.requestFullscreen) {
+            elem.requestFullscreen().catch(e => console.log("Fullscreen error:", e));
+        } else if (elem.webkitRequestFullscreen) { /* Safari */
+            elem.webkitRequestFullscreen().catch(e => console.log("Fullscreen error:", e));
+        }
+
         health = 3;
         armadillos = [];
         player.x = 50;
         player.y = GH - 60;
         player.vx = 0;
         player.vy = 0;
+        
+        // Reset inputs on game start to prevent sticking
+        keys = {}; 
+        
         overlay.style.display = 'none';
         updateHealthUI();
         gameActive = true;
-        requestAnimationFrame(gameLoop);
     }
 
     function updateHealthUI() {
@@ -381,9 +413,15 @@
 
         // Armadillo Update
         spawnArmadillo();
-        armadillos.forEach((a, index) => {
+        
+        // Loop backwards through armadillos to safely splice
+        for (let i = armadillos.length - 1; i >= 0; i--) {
+            let a = armadillos[i];
+            let remove = false;
+            
             a.x += a.vx;
             a.vy += GRAVITY;
+            a.y += a.vy; // Fix: Actually apply the vertical velocity to the armadillo's Y position
             a.rotation += 0.3;
 
             platforms.forEach(p => {
@@ -401,18 +439,23 @@
             const dx = (a.x + a.w/2) - (player.x + player.w/2);
             const dy = (a.y + a.h/2) - (player.y + player.h/2);
             const dist = Math.sqrt(dx*dx + dy*dy);
+            
             if (dist < 25) {
                 health--;
                 updateHealthUI();
-                armadillos.splice(index, 1);
+                remove = true;
                 if (health <= 0) endGame("The tumbleweed was squashed!");
             }
 
-            if (a.y > GH) armadillos.splice(index, 1);
-        });
+            if (a.y > GH) remove = true;
+            
+            if (remove) {
+                armadillos.splice(i, 1);
+            }
+        }
 
-        // Win condition
-        if (player.y < 50 && player.x < 150) {
+        // Win condition (Adjusted coordinates slightly to make grabbing the shoe reliable)
+        if (player.y < 120 && player.x < 150) {
             endGame("YOU GOT THE GOLDEN SHOE!", true);
         }
     }
@@ -428,6 +471,7 @@
 
     function draw() {
         ctx.clearRect(0,0,GW,GH);
+        
         // Sky
         const sky = ctx.createLinearGradient(0, 0, 0, GH);
         sky.addColorStop(0, '#ff5e62');
@@ -490,18 +534,19 @@
         ctx.font = '15px serif';
         ctx.fillText('🤠', -10, -5);
         ctx.restore();
-
-        if (!gameActive) return;
-        requestAnimationFrame(draw);
     }
 
+    // Unified game loop handling both state update and drawing
     function gameLoop() {
-        if (!gameActive) return;
-        update();
+        if (gameActive) {
+            update();
+        }
+        draw();
+        requestAnimationFrame(gameLoop);
     }
 
+    // Start everything
     init();
-    setInterval(gameLoop, 1000/60);
 </script>
 </body>
 </html>

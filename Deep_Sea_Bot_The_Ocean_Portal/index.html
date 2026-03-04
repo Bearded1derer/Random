@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Deep Sea Bot: The Ocean Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -12,6 +12,8 @@
             background: #001a33;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             touch-action: none;
+            /* Support for notches and rounded corners on mobile */
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
         }
         #game-container {
             position: relative;
@@ -33,23 +35,12 @@
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            z-index: 10;
         }
         .hearts {
-            font-size: 2rem;
+            font-size: clamp(1.2rem, 4vw, 2rem);
             display: flex;
             gap: 5px;
-        }
-        .controls-hint {
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: rgba(0,0,0,0.5);
-            padding: 10px 20px;
-            border-radius: 20px;
-            color: #ccc;
-            font-size: 0.9rem;
-            text-align: center;
         }
         #menu-overlay, #game-over-overlay {
             position: absolute;
@@ -80,28 +71,26 @@
             background: #00aaff;
             transform: scale(1.05);
         }
-        .btn-bomb { background: #ff4d4d; }
-        .btn-bomb:hover { background: #ff7070; }
         
         .mobile-controls {
             position: absolute;
-            bottom: 40px;
+            bottom: clamp(20px, 5vh, 60px);
             width: 100%;
             display: none;
             justify-content: space-between;
             align-items: flex-end;
-            padding: 0 40px;
+            padding: 0 5%;
             pointer-events: none;
+            z-index: 50;
         }
         @media (max-width: 1024px) {
             .mobile-controls { display: flex; }
-            .controls-hint { display: none; }
         }
 
         /* Joystick Styles */
         #joystick-base {
-            width: 130px;
-            height: 130px;
+            width: clamp(100px, 20vw, 150px);
+            height: clamp(100px, 20vw, 150px);
             background: rgba(255, 255, 255, 0.1);
             border: 3px solid rgba(255, 255, 255, 0.3);
             border-radius: 50%;
@@ -113,31 +102,41 @@
             touch-action: none;
         }
         #joystick-knob {
-            width: 55px;
-            height: 55px;
+            width: 40%;
+            height: 40%;
             background: rgba(0, 242, 255, 0.6);
             border: 2px solid #fff;
             border-radius: 50%;
             position: absolute;
             pointer-events: none;
-            box-shadow: 0 0 15px rgba(0, 242, 255, 0.4);
         }
 
         .touch-btn {
-            width: 80px;
-            height: 80px;
+            width: clamp(60px, 12vw, 90px);
+            height: clamp(60px, 12vw, 90px);
             background: rgba(255,255,255,0.15);
             border-radius: 50%;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 1.8rem;
+            font-size: 1.5rem;
             pointer-events: auto;
             user-select: none;
             border: 2px solid rgba(255,255,255,0.4);
             backdrop-filter: blur(4px);
         }
+        .btn-bomb { background: #ff4d4d66; }
         .hidden { display: none !important; }
+
+        .fullscreen-hint {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.3);
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -148,48 +147,38 @@
     <div class="ui-layer">
         <div>
             <div id="hearts-container" class="hearts">❤️❤️❤️❤️❤️</div>
-            <div class="mt-2 text-xl font-bold">KILLS: <span id="kill-count">0</span> / 15</div>
+            <div class="mt-2 text-xs md:text-xl font-bold">KILLS: <span id="kill-count">0</span> / 15</div>
         </div>
         <div class="text-right">
-            <div class="text-sm uppercase tracking-widest text-blue-300">Companion</div>
-            <div id="pet-status" class="text-xl font-bold text-cyan-400">PET READY</div>
+            <div class="text-[10px] uppercase tracking-widest text-blue-300">Companion</div>
+            <div id="pet-status" class="text-sm md:text-xl font-bold text-cyan-400">PET READY</div>
         </div>
     </div>
 
     <div id="menu-overlay">
-        <h1 class="text-5xl font-black mb-4 text-blue-400">DEEP SEA BOT</h1>
-        <p class="max-w-md mb-6 italic text-gray-300">Navigate the abyss, defeat the Ocean Guardian, and escape through the Magical Portal.</p>
-        <div class="grid grid-cols-2 gap-4 text-sm mb-6 text-left bg-blue-900/40 p-4 rounded-xl">
-            <div>🔱 <b>Trident:</b> Space / Tap 🔱</div>
-            <div>💣 <b>Sea Bomb:</b> Shift / Tap 💣</div>
-            <div>🦈 <b>Pet Shark:</b> Automatic Support</div>
-            <div>🕹️ <b>Move:</b> WASD / Joystick</div>
-        </div>
+        <h1 class="text-4xl md:text-5xl font-black mb-4 text-blue-400">DEEP SEA BOT</h1>
+        <p class="max-w-md mb-6 italic text-sm md:text-base text-gray-300">Optimized for Fullscreen & Folds</p>
         <button class="btn" onclick="startGame()">ENTER THE DEPTHS</button>
+        <p class="mt-4 text-[10px] text-gray-500">Will attempt to enter fullscreen mode</p>
     </div>
 
     <div id="game-over-overlay" class="hidden">
-        <h2 id="result-title" class="text-6xl font-black mb-4">DEFEATED</h2>
+        <h2 id="result-title" class="text-5xl font-black mb-4">DEFEATED</h2>
         <p id="result-msg" class="text-xl mb-8 text-gray-300"></p>
         <button class="btn" onclick="location.reload()">TRY AGAIN</button>
     </div>
 
     <div class="mobile-controls">
-        <!-- New Joystick -->
         <div id="joystick-base">
             <div id="joystick-knob"></div>
         </div>
-        
-        <!-- Action Buttons -->
-        <div class="flex flex-col gap-6">
+        <div class="flex flex-col gap-4">
             <div class="touch-btn btn-bomb" id="ctrl-bomb">💣</div>
-            <div class="touch-btn" style="width: 100px; height: 100px; background: rgba(0, 119, 190, 0.6);" id="ctrl-shoot">🔱</div>
+            <div class="touch-btn" style="background: rgba(0, 119, 190, 0.6);" id="ctrl-shoot">🔱</div>
         </div>
     </div>
-
-    <div class="controls-hint">
-        WASD/ARROWS to Move • SPACE to Shoot Trident • SHIFT for Sea Bombs
-    </div>
+    
+    <div class="fullscreen-hint">Press ESC to exit fullscreen</div>
 </div>
 
 <script>
@@ -200,44 +189,24 @@
     const petStatus = document.getElementById('pet-status');
     const menuOverlay = document.getElementById('menu-overlay');
     const gameOverOverlay = document.getElementById('game-over-overlay');
+    const container = document.getElementById('game-container');
 
     let gameActive = false;
-    let score = 0;
     let health = 5;
     let kills = 0;
     let bossSpawned = false;
     let portalOpen = false;
 
-    // Game Config
     const CONFIG = {
         playerSpeed: 5,
-        tridentSpeed: 8,
+        tridentSpeed: 10,
         bombCooldown: 3000,
         enemySpawnRate: 1500,
         targetKillsForBoss: 15
     };
 
-    let player = {
-        x: 100,
-        y: 300,
-        w: 60,
-        h: 60,
-        color: '#00f2ff',
-        vx: 0,
-        vy: 0,
-        lastBomb: 0
-    };
-
-    let pet = {
-        x: 50,
-        y: 300,
-        w: 80,
-        h: 40,
-        active: true,
-        targetY: 300,
-        lastAttack: 0,
-        attackCooldown: 2000
-    };
+    let player = { x: 100, y: 300, w: 50, h: 50, vx: 0, vy: 0, lastBomb: 0 };
+    let pet = { x: 50, y: 300, w: 60, h: 30, active: true, targetY: 300, lastAttack: 0, attackCooldown: 2000 };
 
     let tridents = [];
     let bombs = [];
@@ -249,28 +218,40 @@
     function init() {
         resize();
         window.addEventListener('resize', resize);
-        
-        // Input Listeners
         window.addEventListener('keydown', e => keys[e.code] = true);
         window.addEventListener('keyup', e => keys[e.code] = false);
 
-        // Mobile joystick and buttons
         setupJoystick();
         setupTouchBtn('ctrl-shoot', 'Space');
         setupTouchBtn('ctrl-bomb', 'ShiftLeft');
 
-        // Initial bubbles
         for(let i=0; i<20; i++) spawnBubble(true);
+    }
+
+    // FULLSCREEN LOGIC
+    async function toggleFullScreen() {
+        if (!document.fullscreenElement) {
+            try {
+                if (container.requestFullscreen) {
+                    await container.requestFullscreen();
+                } else if (container.webkitRequestFullscreen) {
+                    await container.webkitRequestFullscreen();
+                }
+            } catch (err) {
+                console.log("Fullscreen blocked or not supported.");
+            }
+        }
     }
 
     function setupJoystick() {
         const base = document.getElementById('joystick-base');
         const knob = document.getElementById('joystick-knob');
-        const limit = 55; 
+        let limit = 0; 
         let activeTouchId = null;
 
         const handleMove = (clientX, clientY) => {
             const rect = base.getBoundingClientRect();
+            limit = rect.width / 2;
             const centerX = rect.left + rect.width / 2;
             const centerY = rect.top + rect.height / 2;
             
@@ -285,8 +266,7 @@
 
             knob.style.transform = `translate(${dx}px, ${dy}px)`;
 
-            // Map to keys for compatibility with existing update logic
-            const threshold = 15;
+            const threshold = 10;
             keys['ArrowLeft'] = dx < -threshold;
             keys['ArrowRight'] = dx > threshold;
             keys['ArrowUp'] = dy < -threshold;
@@ -313,10 +293,7 @@
                 if (touch.identifier === activeTouchId) {
                     activeTouchId = null;
                     knob.style.transform = `translate(0, 0)`;
-                    keys['ArrowLeft'] = false;
-                    keys['ArrowRight'] = false;
-                    keys['ArrowUp'] = false;
-                    keys['ArrowDown'] = false;
+                    keys['ArrowLeft'] = keys['ArrowRight'] = keys['ArrowUp'] = keys['ArrowDown'] = false;
                 }
             }
         });
@@ -331,9 +308,13 @@
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        // Adjust player if out of bounds after resize (important for Fold transitions)
+        if (player.x > canvas.width) player.x = canvas.width - 100;
+        if (player.y > canvas.height) player.y = canvas.height - 100;
     }
 
     function startGame() {
+        toggleFullScreen();
         menuOverlay.classList.add('hidden');
         gameActive = true;
         requestAnimationFrame(gameLoop);
@@ -344,9 +325,8 @@
         bubbles.push({
             x: Math.random() * canvas.width,
             y: randomY ? Math.random() * canvas.height : canvas.height + 20,
-            size: Math.random() * 10 + 2,
-            speed: Math.random() * 2 + 1,
-            drift: Math.sin(Math.random() * 10)
+            size: Math.random() * 8 + 2,
+            speed: Math.random() * 2 + 1
         });
     }
 
@@ -357,8 +337,8 @@
         enemies.push({
             x: canvas.width + 100,
             y: Math.random() * (canvas.height - 100) + 50,
-            w: type === 'shark' ? 80 : 50,
-            h: type === 'shark' ? 40 : 50,
+            w: type === 'shark' ? 70 : 40,
+            h: type === 'shark' ? 35 : 40,
             type: type,
             hp: type === 'shark' ? 2 : 1,
             speed: Math.random() * 2 + 2,
@@ -370,35 +350,21 @@
         bossSpawned = true;
         enemies.push({
             x: canvas.width + 200,
-            y: canvas.height / 2 - 100,
-            w: 250,
-            h: 150,
+            y: canvas.height / 2 - 75,
+            w: canvas.width * 0.3, // Dynamic width for boss
+            h: canvas.width * 0.18,
             type: 'boss',
-            hp: 30,
-            maxHp: 30,
+            hp: 40,
+            maxHp: 40,
             speed: 1,
-            phase: 0,
             lastShot: 0
         });
-    }
-
-    function createExplosion(x, y, color, count = 10) {
-        for (let i = 0; i < count; i++) {
-            particles.push({
-                x, y,
-                vx: (Math.random() - 0.5) * 10,
-                vy: (Math.random() - 0.5) * 10,
-                life: 1.0,
-                color: color,
-                size: Math.random() * 5 + 2
-            });
-        }
     }
 
     function update() {
         if (!gameActive) return;
 
-        // Player movement
+        // Dynamic player movement
         if (keys['ArrowUp'] || keys['KeyW']) player.vy = -CONFIG.playerSpeed;
         else if (keys['ArrowDown'] || keys['KeyS']) player.vy = CONFIG.playerSpeed;
         else player.vy *= 0.8;
@@ -407,145 +373,111 @@
         else if (keys['ArrowRight'] || keys['KeyD']) player.vx = CONFIG.playerSpeed;
         else player.vx *= 0.8;
 
-        player.x = Math.max(50, Math.min(canvas.width/2, player.x + player.vx));
-        player.y = Math.max(50, Math.min(canvas.height - 100, player.y + player.vy));
+        player.x = Math.max(20, Math.min(canvas.width * 0.8, player.x + player.vx));
+        player.y = Math.max(20, Math.min(canvas.height - 80, player.y + player.vy));
 
-        // Pet movement (follows behind player)
-        pet.targetY = player.y + 20;
-        pet.x += (player.x - 80 - pet.x) * 0.1;
-        pet.y += (pet.targetY - pet.y) * 0.1;
+        // Pet logic
+        pet.x += (player.x - 70 - pet.x) * 0.1;
+        pet.y += (player.y + 10 - pet.y) * 0.1;
 
-        // Weapons
-        if (keys['Space'] && (!player.lastShoot || Date.now() - player.lastShoot > 400)) {
+        // Attack logic
+        if (keys['Space'] && (!player.lastShoot || Date.now() - player.lastShoot > 350)) {
             tridents.push({ x: player.x + 40, y: player.y + 20, vx: CONFIG.tridentSpeed });
             player.lastShoot = Date.now();
         }
 
         if ((keys['ShiftLeft'] || keys['KeyB']) && Date.now() - player.lastBomb > CONFIG.bombCooldown) {
-            bombs.push({ x: player.x + 20, y: player.y + 30, vy: 2, timer: 120 });
+            bombs.push({ x: player.x + 20, y: player.y + 30, vy: 2, timer: 100 });
             player.lastBomb = Date.now();
         }
 
-        // Pet automated attack
         if (Date.now() - pet.lastAttack > pet.attackCooldown) {
-            tridents.push({ x: pet.x + 60, y: pet.y + 20, vx: CONFIG.tridentSpeed + 2, isPet: true });
+            tridents.push({ x: pet.x + 50, y: pet.y + 15, vx: CONFIG.tridentSpeed + 2, isPet: true });
             pet.lastAttack = Date.now();
         }
 
-        // Update Projectiles
+        // Projectiles
         tridents = tridents.filter(t => {
             t.x += t.vx;
-            return t.x < canvas.width + 100;
+            return t.x < canvas.width + 50;
         });
 
         bombs = bombs.filter(b => {
             b.y += b.vy;
             b.timer--;
             if (b.timer <= 0) {
-                createExplosion(b.x, b.y, '#ffaa00', 30);
                 enemies.forEach(e => {
-                    const dist = Math.hypot(e.x + e.w/2 - b.x, e.y + e.h/2 - b.y);
-                    if (dist < 150) e.hp -= 5;
+                    const d = Math.hypot(e.x + e.w/2 - b.x, e.y + e.h/2 - b.y);
+                    if (d < 150) e.hp -= 8;
                 });
                 return false;
             }
             return b.y < canvas.height;
         });
 
-        // Update Bubbles
+        // Bubble refresh
         if (Math.random() < 0.1) spawnBubble();
-        bubbles.forEach(b => {
-            b.y -= b.speed;
-            b.x += Math.sin(Date.now() / 500) * 0.5;
-        });
+        bubbles.forEach(b => b.y -= b.speed);
         bubbles = bubbles.filter(b => b.y > -20);
 
-        // Update Enemies
+        // Enemy collision/logic
         enemies.forEach((e, idx) => {
             if (e.type === 'boss') {
-                e.x += (canvas.width * 0.7 - e.x) * 0.02;
-                e.y += Math.sin(Date.now() / 1000) * 2;
-                
-                if (Date.now() - e.lastShot > 1500) {
-                    for(let i=0; i<3; i++) {
-                        enemies.push({
-                            x: e.x, y: e.y + (i * 60), w: 30, h: 30,
-                            type: 'bullet', hp: 1, speed: 6, sin: 0
-                        });
+                e.x += (canvas.width * 0.65 - e.x) * 0.02;
+                e.y += Math.sin(Date.now() / 1000) * 1.5;
+                if (Date.now() - e.lastShot > 1200) {
+                    for(let i=-1; i<=1; i++) {
+                        enemies.push({ x: e.x, y: e.y + e.h/2 + (i*50), w: 20, h: 20, type: 'bullet', hp: 1, speed: 7 });
                     }
                     e.lastShot = Date.now();
                 }
             } else {
                 e.x -= e.speed;
-                if (e.type === 'puffer') e.y += Math.sin(Date.now() / 300 + e.sin) * 2;
+                if (e.type === 'puffer') e.y += Math.sin(Date.now() / 400 + e.sin) * 2;
             }
 
+            // Player hit
+            if (player.x < e.x + e.w && player.x + player.w > e.x && player.y < e.y + e.h && player.y + player.h > e.y) {
+                if (!player.invuln) {
+                    health--;
+                    updateHeartsUI();
+                    player.invuln = true;
+                    setTimeout(() => player.invuln = false, 1500);
+                    if (e.type !== 'boss') e.hp = 0;
+                    if (health <= 0) endGame();
+                }
+            }
+
+            // Trident hit
             tridents.forEach((t, tidx) => {
                 if (t.x > e.x && t.x < e.x + e.w && t.y > e.y && t.y < e.y + e.h) {
                     e.hp--;
-                    createExplosion(t.x, t.y, e.type === 'boss' ? '#fff' : '#f00', 5);
                     tridents.splice(tidx, 1);
                 }
             });
 
-            if (player.x < e.x + e.w && player.x + player.w > e.x && player.y < e.y + e.h && player.y + player.h > e.y) {
-                if (!player.invuln) {
-                    takeDamage();
-                    if (e.type !== 'boss') e.hp = 0; 
-                }
-            }
-
             if (e.hp <= 0) {
-                if (e.type === 'boss') {
-                    kills += 10;
-                    portalOpen = true;
-                } else if (e.type !== 'bullet') {
-                    kills++;
-                }
-                createExplosion(e.x + e.w/2, e.y + e.h/2, '#00ffff', 15);
+                if (e.type === 'boss') { kills += 10; portalOpen = true; }
+                else if (e.type !== 'bullet') kills++;
                 enemies.splice(idx, 1);
-                
-                if (kills >= CONFIG.targetKillsForBoss && !bossSpawned) {
-                    spawnBoss();
-                }
+                if (kills >= CONFIG.targetKillsForBoss && !bossSpawned) spawnBoss();
             }
         });
 
         if (portalOpen) {
-            const portalX = canvas.width - 150;
-            const portalY = canvas.height / 2;
-            const dist = Math.hypot(player.x - portalX, player.y - portalY);
-            if (dist < 100) winGame();
+            const d = Math.hypot(player.x - (canvas.width - 100), player.y - canvas.height/2);
+            if (d < 80) winGame();
         }
 
-        enemies = enemies.filter(e => e.x > -300);
-
+        enemies = enemies.filter(e => e.x > -400);
         killCounter.innerText = kills;
         const bombCd = Math.max(0, CONFIG.bombCooldown - (Date.now() - player.lastBomb));
-        petStatus.innerText = bombCd === 0 ? "BOMB READY" : `RELOADING...`;
-        petStatus.style.color = bombCd === 0 ? "#4ade80" : "#94a3b8";
-
-        particles.forEach(p => {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.life -= 0.02;
-        });
-        particles = particles.filter(p => p.life > 0);
-    }
-
-    function takeDamage() {
-        health--;
-        player.invuln = true;
-        setTimeout(() => player.invuln = false, 1500);
-        updateHeartsUI();
-        if (health <= 0) endGame();
+        petStatus.innerText = bombCd === 0 ? "BOMB READY" : `...`;
     }
 
     function updateHeartsUI() {
         let h = "";
-        for(let i=0; i<5; i++) {
-            h += i < health ? "❤️" : "🖤";
-        }
+        for(let i=0; i<5; i++) h += i < health ? "❤️" : "🖤";
         heartsContainer.innerText = h;
     }
 
@@ -554,85 +486,45 @@
 
         bubbles.forEach(b => {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2);
-            ctx.fill();
+            ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2); ctx.fill();
         });
 
         if (portalOpen) {
             const time = Date.now() / 500;
-            const grad = ctx.createRadialGradient(canvas.width - 150, canvas.height/2, 10, canvas.width - 150, canvas.height/2, 120);
-            grad.addColorStop(0, '#fff');
-            grad.addColorStop(0.5, '#f0f');
-            grad.addColorStop(1, 'transparent');
+            const grad = ctx.createRadialGradient(canvas.width - 100, canvas.height/2, 10, canvas.width - 100, canvas.height/2, 100);
+            grad.addColorStop(0, '#fff'); grad.addColorStop(0.5, '#f0f'); grad.addColorStop(1, 'transparent');
             ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(canvas.width - 150, canvas.height/2, 80 + Math.sin(time)*10, 0, Math.PI*2);
-            ctx.fill();
-            ctx.font = '50px serif';
-            ctx.fillText('🌀', canvas.width - 175, canvas.height/2 + 15);
+            ctx.beginPath(); ctx.arc(canvas.width - 100, canvas.height/2, 70 + Math.sin(time)*10, 0, Math.PI*2); ctx.fill();
         }
 
         enemies.forEach(e => {
             ctx.save();
             if (e.type === 'boss') {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)';
-                ctx.fillRect(e.x, e.y - 30, e.w, 10);
-                ctx.fillStyle = '#ff0000';
-                ctx.fillRect(e.x, e.y - 30, (e.hp / e.maxHp) * e.w, 10);
-                
-                ctx.font = '140px serif';
-                ctx.fillText('🦈', e.x, e.y + e.h);
-                ctx.font = '40px sans-serif';
-                ctx.fillStyle = 'white';
-                ctx.fillText('Ocean Guardian', e.x + 20, e.y - 40);
+                ctx.fillStyle = '#f00'; ctx.fillRect(e.x, e.y - 20, (e.hp/e.maxHp)*e.w, 8);
+                ctx.font = `${e.h * 0.9}px serif`; ctx.fillText('🦈', e.x, e.y + e.h);
             } else if (e.type === 'shark') {
-                ctx.font = '50px serif';
-                ctx.fillText('🦈', e.x, e.y + 40);
+                ctx.font = '40px serif'; ctx.fillText('🦈', e.x, e.y + 35);
             } else if (e.type === 'puffer') {
-                ctx.font = '45px serif';
-                ctx.fillText('🐡', e.x, e.y + 40);
+                ctx.font = '35px serif'; ctx.fillText('🐡', e.x, e.y + 35);
             } else if (e.type === 'bullet') {
-                ctx.fillStyle = '#ff4d4d';
-                ctx.beginPath();
-                ctx.arc(e.x, e.y, 10, 0, Math.PI*2);
-                ctx.fill();
+                ctx.fillStyle = '#ff4d4d'; ctx.beginPath(); ctx.arc(e.x, e.y, 8, 0, Math.PI*2); ctx.fill();
             }
             ctx.restore();
         });
 
-        ctx.save();
-        ctx.font = '60px serif';
-        ctx.translate(pet.x, pet.y + 30);
-        ctx.scale(-1, 1); 
-        ctx.fillText('🦈', -60, 10);
-        ctx.restore();
-        ctx.fillStyle = '#00f2ff';
-        ctx.font = '10px sans-serif';
-        ctx.fillText('COMPANION UNIT', pet.x, pet.y);
+        // Pet
+        ctx.save(); ctx.translate(pet.x, pet.y + 20); ctx.scale(-1, 1);
+        ctx.font = '40px serif'; ctx.fillText('🦈', -40, 10); ctx.restore();
 
+        // Player
         ctx.save();
         if (player.invuln && Math.floor(Date.now() / 100) % 2 === 0) ctx.globalAlpha = 0.3;
-        ctx.font = '60px serif';
-        ctx.fillText('🤖', player.x, player.y + 50);
-        ctx.restore();
+        ctx.font = '45px serif'; ctx.fillText('🤖', player.x, player.y + 40); ctx.restore();
 
-        tridents.forEach(t => {
-            ctx.font = '30px serif';
-            ctx.fillText(t.isPet ? '⚡' : '🔱', t.x, t.y);
-        });
-
-        bombs.forEach(b => {
-            ctx.font = '30px serif';
-            ctx.fillText('💣', b.x, b.y);
-        });
-
-        particles.forEach(p => {
-            ctx.globalAlpha = p.life;
-            ctx.fillStyle = p.color;
-            ctx.fillRect(p.x, p.y, p.size, p.size);
-        });
-        ctx.globalAlpha = 1;
+        // Projectiles
+        ctx.fillStyle = '#0ff';
+        tridents.forEach(t => { ctx.font = '25px serif'; ctx.fillText(t.isPet ? '⚡' : '🔱', t.x, t.y); });
+        bombs.forEach(b => { ctx.font = '25px serif'; ctx.fillText('💣', b.x, b.y); });
     }
 
     function gameLoop() {
@@ -646,16 +538,14 @@
         gameActive = false;
         gameOverOverlay.classList.remove('hidden');
         document.getElementById('result-title').innerText = "VICTORY!";
-        document.getElementById('result-title').className = "text-6xl font-black mb-4 text-green-400";
-        document.getElementById('result-msg').innerText = "You traversed the abyss and reached the portal!";
+        document.getElementById('result-msg').innerText = "You traversed the abyss!";
     }
 
     function endGame() {
         gameActive = false;
         gameOverOverlay.classList.remove('hidden');
         document.getElementById('result-title').innerText = "UNIT DISABLED";
-        document.getElementById('result-title').className = "text-6xl font-black mb-4 text-red-500";
-        document.getElementById('result-msg').innerText = "The ocean depths have claimed another robot.";
+        document.getElementById('result-msg').innerText = "The depths have claimed another bot.";
     }
 
     init();

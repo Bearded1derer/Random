@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- viewport-fit=cover tells the phone to draw the game under the notch/bezels -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Galactic Cat: Zombie Curer</title>
     <style>
         body {
@@ -19,12 +20,15 @@
         #gameCanvas {
             display: block;
         }
+        
+        /* UI and Safe Area Adjustments */
         #ui {
             position: absolute;
-            top: 10px;
-            left: 20px;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(20px, env(safe-area-inset-left));
             pointer-events: none;
             text-shadow: 2px 2px 0 #000;
+            z-index: 10;
         }
         #scoreBoard {
             font-size: 24px;
@@ -41,10 +45,34 @@
             color: #ff3366;
             margin-top: 5px;
         }
+        
+        #fullscreenBtn {
+            position: absolute;
+            top: max(10px, env(safe-area-inset-top));
+            right: max(20px, env(safe-area-inset-right));
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.5);
+            color: white;
+            font-size: 24px;
+            width: 50px;
+            height: 50px;
+            border-radius: 10px;
+            cursor: pointer;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+            padding: 0;
+            transition: background 0.2s;
+        }
+        #fullscreenBtn:active {
+            background: rgba(255, 255, 255, 0.5);
+        }
+
         #controlsHelp {
             position: absolute;
-            top: 90px;
-            left: 20px;
+            top: max(90px, calc(env(safe-area-inset-top) + 80px));
+            left: max(20px, env(safe-area-inset-left));
             font-size: 16px;
             color: rgba(255, 255, 255, 0.7);
             pointer-events: none;
@@ -64,7 +92,7 @@
             z-index: 100;
         }
         h1 { margin: 0 0 20px 0; font-size: 48px; color: #ff3366; }
-        button {
+        .play-btn {
             padding: 15px 30px;
             font-size: 24px;
             background-color: #00ffcc;
@@ -75,14 +103,25 @@
             font-weight: bold;
             transition: transform 0.1s;
         }
-        button:hover { transform: scale(1.1); background-color: #fff; }
+        .play-btn:hover { transform: scale(1.1); background-color: #fff; }
 
         /* Mobile Touch Controls */
         #touchControls {
             position: absolute;
-            bottom: 20px;
-            left: 0;
+            /* Keeps controls above the home swipe bar on modern phones */
+            bottom: max(20px, env(safe-area-inset-bottom)); 
+            
+            /* Centers the controls and gives them a max-width for square screens/tablets */
+            left: 50%;
+            transform: translateX(-50%);
             width: 100%;
+            max-width: 900px; /* Keeps buttons reachable on a Z Fold or iPad */
+            box-sizing: border-box;
+            
+            /* Keeps buttons away from camera hole-punches */
+            padding-left: max(10px, env(safe-area-inset-left));
+            padding-right: max(10px, env(safe-area-inset-right));
+            
             display: flex;
             justify-content: space-between;
             pointer-events: none;
@@ -93,7 +132,6 @@
             height: 150px;
             position: relative;
             pointer-events: auto;
-            margin-left: 10px;
             touch-action: none;
         }
         #joystickBase {
@@ -120,7 +158,6 @@
             display: flex;
             gap: 15px;
             align-items: flex-end;
-            padding-right: 20px;
             pointer-events: auto;
         }
         .touch-btn {
@@ -132,7 +169,7 @@
             align-items: center;
             padding: 0;
             margin: 0;
-            touch-action: none; /* Crucial for touch interfaces */
+            touch-action: none;
         }
         .touch-btn:active {
             background: rgba(255, 255, 255, 0.4);
@@ -145,10 +182,11 @@
         }
 
         @media (max-width: 600px) {
-            #controlsHelp { display: none; } /* Hide text help on small screens */
+            #controlsHelp { display: none; }
             #scoreBoard { font-size: 18px; }
             #worldDisplay { font-size: 16px; }
             #healthBar { font-size: 18px; }
+            #fullscreenBtn { width: 40px; height: 40px; font-size: 20px; }
         }
     </style>
 </head>
@@ -161,6 +199,8 @@
         <div id="worldDisplay">World: 1 - Earth's Atmosphere</div>
         <div id="healthBar">Health: ❤️❤️❤️</div>
     </div>
+    
+    <button id="fullscreenBtn" aria-label="Toggle Fullscreen">🔲</button>
 
     <div id="controlsHelp">
         Keyboard: WASD/Arrows | SPACE: Knife | Z: Sword
@@ -182,7 +222,7 @@
     <div id="gameOverScreen">
         <h1>GAME OVER</h1>
         <p id="finalScore" style="font-size: 24px; margin-bottom: 20px;">You cured 0 zombies.</p>
-        <button onclick="resetGame()">Play Again</button>
+        <button class="play-btn" onclick="resetGame()">Play Again</button>
     </div>
 
     <script>
@@ -195,6 +235,28 @@
         const healthBar = document.getElementById('healthBar');
         const gameOverScreen = document.getElementById('gameOverScreen');
         const finalScore = document.getElementById('finalScore');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+        // Fullscreen Toggle Logic
+        fullscreenBtn.addEventListener('click', () => {
+            const doc = window.document;
+            const docEl = doc.documentElement;
+
+            const requestFullScreen = docEl.requestFullscreen || docEl.mozRequestFullScreen || docEl.webkitRequestFullScreen || docEl.msRequestFullscreen;
+            const cancelFullScreen = doc.exitFullscreen || doc.mozCancelFullScreen || doc.webkitExitFullscreen || doc.msExitFullscreen;
+
+            if (!doc.fullscreenElement && !doc.mozFullScreenElement && !doc.webkitFullscreenElement && !doc.msFullscreenElement) {
+                if (requestFullScreen) {
+                    requestFullScreen.call(docEl).catch(err => {
+                        console.log("Error attempting to enable full-screen mode: " + err.message);
+                    });
+                }
+            } else {
+                if (cancelFullScreen) {
+                    cancelFullScreen.call(doc);
+                }
+            }
+        });
 
         // Setup Canvas Size
         function resize() {
@@ -239,7 +301,6 @@
             if (!btn) return;
             
             const press = (e) => {
-                // Prevent default stops double-firing and browser gestures
                 if (e.cancelable) e.preventDefault(); 
                 keys[keyStr] = true;
                 if(actionFunc && gameActive) actionFunc();
@@ -250,7 +311,6 @@
                 keys[keyStr] = false;
             };
 
-            // Explicitly use touchstart/touchend for rock-solid mobile support
             btn.addEventListener('touchstart', press, {passive: false});
             btn.addEventListener('mousedown', press);
 
@@ -266,7 +326,7 @@
         const joyKnob = document.getElementById('joystickKnob');
         let joyCenterX = 0;
         let joyCenterY = 0;
-        const maxRadius = 35; // How far the knob can move from center
+        const maxRadius = 35; 
         let isDraggingJoy = false;
 
         function updateJoystickCenter() {
@@ -280,16 +340,13 @@
             let dy = clientY - joyCenterY;
             let distance = Math.hypot(dx, dy);
             
-            // Limit knob to the base radius
             if (distance > maxRadius) {
                 dx = (dx / distance) * maxRadius;
                 dy = (dy / distance) * maxRadius;
             }
             
-            // Move knob visually
             joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
             
-            // Normalize -1.0 to 1.0 for player movement calculation
             joystick.x = dx / maxRadius;
             joystick.y = dy / maxRadius;
         }
@@ -321,13 +378,11 @@
             joyKnob.style.transform = `translate(0px, 0px)`;
         };
 
-        // Touch Listeners
         joyZone.addEventListener('touchstart', startJoystick, {passive: false});
         joyZone.addEventListener('touchmove', moveJoystick, {passive: false});
         joyZone.addEventListener('touchend', resetJoystick, {passive: false});
         joyZone.addEventListener('touchcancel', resetJoystick, {passive: false});
         
-        // Mouse Listeners (for testing on PC!)
         joyZone.addEventListener('mousedown', startJoystick);
         window.addEventListener('mousemove', moveJoystick);
         window.addEventListener('mouseup', resetJoystick);
@@ -352,7 +407,6 @@
         let particles = [];
         let stars = [];
 
-        // Initialize Stars
         for(let i=0; i<100; i++) {
             stars.push({
                 x: Math.random() * canvas.width,
@@ -362,9 +416,7 @@
             });
         }
 
-        // Actions
         function shootKnife() {
-            // Prevent spamming too fast
             if (knives.length < 5) {
                 knives.push({
                     x: cat.x + cat.size,
@@ -378,13 +430,12 @@
 
         function swingSword() {
             if (cat.swordCooldown <= 0) {
-                cat.swordTimer = 15; // Sword stays out for 15 frames
-                cat.swordCooldown = 30; // Cannot swing again for 30 frames
+                cat.swordTimer = 15;
+                cat.swordCooldown = 30; 
             }
         }
 
         function spawnZombie() {
-            // Gets harder as level increases
             let spawnRate = Math.max(20, 80 - (level * 5)); 
             if (frameCount % spawnRate === 0) {
                 zombies.push({
@@ -415,10 +466,8 @@
             let newLevel = Math.floor(score / 10) + 1;
             if (newLevel > level) {
                 level = newLevel;
-                // Change world based on level (loops through array)
                 currentWorld = worlds[(level - 1) % worlds.length];
                 worldDisplay.innerText = `World: ${level} - ${currentWorld.name}`;
-                // Celebration explosion
                 createParticles(canvas.width/2, canvas.height/2, 100, '#00ffcc', 3);
             }
         }
@@ -450,7 +499,6 @@
             worldDisplay.innerText = `World: 1 - Earth's Atmosphere`;
             updateHealthUI();
             
-            // Reset keyboard keys in case they stuck during game over
             for (let k in keys) keys[k] = false;
         }
 
@@ -461,7 +509,6 @@
 
             frameCount++;
 
-            // Player Movement (Handles Joystick or Keyboard)
             if (joystick.active) {
                 cat.x += joystick.x * cat.speed;
                 cat.y += joystick.y * cat.speed;
@@ -472,28 +519,23 @@
                 if (keys.d || keys.ArrowRight) cat.x += cat.speed;
             }
 
-            // Keep cat on screen
             cat.x = Math.max(cat.size, Math.min(canvas.width - cat.size, cat.x));
             cat.y = Math.max(cat.size, Math.min(canvas.height - cat.size, cat.y));
 
-            // Sword Logic
             if (cat.swordTimer > 0) cat.swordTimer--;
             if (cat.swordCooldown > 0) cat.swordCooldown--;
 
-            // Update Stars
             stars.forEach(star => {
-                star.x -= star.speed + (level * 0.5); // Stars move faster on higher levels
+                star.x -= star.speed + (level * 0.5); 
                 if (star.x < 0) {
                     star.x = canvas.width;
                     star.y = Math.random() * canvas.height;
                 }
             });
 
-            // Update Knives
             for (let i = knives.length - 1; i >= 0; i--) {
                 let k = knives[i];
                 k.x += k.speed;
-                // Fire trail effect
                 createParticles(k.x - 10, k.y, 1, '#ff3300');
                 createParticles(k.x - 10, k.y, 1, '#ffcc00');
                 
@@ -502,16 +544,14 @@
                 }
             }
 
-            // Spawn & Update Zombies
             spawnZombie();
             
             for (let i = zombies.length - 1; i >= 0; i--) {
                 let z = zombies[i];
                 z.x -= z.speed;
                 z.wobble += 0.1;
-                z.y += Math.sin(z.wobble) * 2; // Zombie shambling effect
+                z.y += Math.sin(z.wobble) * 2; 
 
-                // Collision: Zombie hits Cat
                 let distToCat = Math.hypot(cat.x - z.x, cat.y - z.y);
                 if (distToCat < cat.size/2 + z.size/2) {
                     cat.health--;
@@ -521,22 +561,19 @@
                     continue;
                 }
 
-                // Collision: Sword hits Zombie
                 if (cat.swordTimer > 0) {
-                    // Sword hit box is a large area in front of the cat
                     if (z.x > cat.x && z.x < cat.x + 150 && Math.abs(cat.y - z.y) < 100) {
                         cureZombie(i, z.x, z.y);
                         continue;
                     }
                 }
 
-                // Collision: Knife hits Zombie
                 let knifeHit = false;
                 for (let j = knives.length - 1; j >= 0; j--) {
                     let k = knives[j];
                     if (Math.hypot(k.x - z.x, k.y - z.y) < k.size/2 + z.size/2) {
-                        knives.splice(j, 1); // Remove knife
-                        cureZombie(i, z.x, z.y); // Cure zombie
+                        knives.splice(j, 1); 
+                        cureZombie(i, z.x, z.y); 
                         knifeHit = true;
                         break;
                     }
@@ -544,13 +581,11 @@
 
                 if (knifeHit) continue;
 
-                // Remove zombie if it goes off screen
                 if (z.x < -50) {
                     zombies.splice(i, 1);
                 }
             }
 
-            // Update Particles
             for (let i = particles.length - 1; i >= 0; i--) {
                 let p = particles[i];
                 p.x += p.vx;
@@ -566,7 +601,6 @@
             zombies.splice(index, 1);
             score++;
             scoreBoard.innerText = `Zombies Cured: ${score}`;
-            // "Cure" effect - bursts of green and gold!
             createParticles(x, y, 20, '#00ffcc');
             createParticles(x, y, 10, '#ffff00');
             updateLevel();
@@ -575,11 +609,9 @@
         // --- Drawing Loop ---
 
         function draw() {
-            // Clear and draw background
             ctx.fillStyle = currentWorld.color;
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw Stars
             ctx.fillStyle = currentWorld.stars;
             stars.forEach(star => {
                 ctx.beginPath();
@@ -587,7 +619,6 @@
                 ctx.fill();
             });
 
-            // Draw Particles
             particles.forEach(p => {
                 ctx.globalAlpha = p.life;
                 ctx.fillStyle = p.color;
@@ -597,18 +628,15 @@
             });
             ctx.globalAlpha = 1.0;
 
-            // Draw Giant Fire Sword
             if (cat.swordTimer > 0) {
                 ctx.save();
                 ctx.translate(cat.x, cat.y);
                 
-                // Animate the swing angle
-                let swingProgress = 1 - (cat.swordTimer / 15); // 0 to 1
-                let angle = -Math.PI/2 + (swingProgress * Math.PI); // Swing from top to bottom
+                let swingProgress = 1 - (cat.swordTimer / 15); 
+                let angle = -Math.PI/2 + (swingProgress * Math.PI); 
                 
                 ctx.rotate(angle);
                 
-                // Draw fire blade
                 let gradient = ctx.createLinearGradient(0, 0, 150, 0);
                 gradient.addColorStop(0, "white");
                 gradient.addColorStop(0.2, "yellow");
@@ -622,13 +650,11 @@
                 ctx.fillStyle = gradient;
                 ctx.fill();
 
-                // Fire sparks from sword
                 createParticles(cat.x + Math.cos(angle)*150, cat.y + Math.sin(angle)*150, 2, 'orange');
 
                 ctx.restore();
             }
 
-            // Draw Knives
             ctx.font = "24px Arial";
             ctx.textAlign = "center";
             ctx.textBaseline = "middle";
@@ -636,16 +662,13 @@
                 ctx.fillText('🗡️', k.x, k.y);
             });
 
-            // Draw Zombies
             ctx.font = "40px Arial";
             zombies.forEach(z => {
                 ctx.fillText('🧟‍♂️', z.x, z.y);
             });
 
-            // Draw Flying Cat (Hero)
             ctx.font = "45px Arial";
             
-            // Add a little jetpack flame when moving
             if (keys.w || keys.a || keys.s || keys.d || keys.ArrowUp || keys.ArrowLeft || keys.ArrowDown || keys.ArrowRight || joystick.active) {
                 createParticles(cat.x - 20, cat.y + 10, 1, '#00ccff'); 
             }
@@ -659,7 +682,6 @@
             requestAnimationFrame(gameLoop);
         }
 
-        // Start the game!
         gameLoop();
 
     </script>
