@@ -5,34 +5,88 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The Great Toast Rebellion</title>
     <style>
-        body { margin: 0; overflow: hidden; background: #333; font-family: 'Courier New', Courier, monospace; touch-action: none; }
-        #game-ui { position: absolute; top: 10px; left: 10px; color: white; text-shadow: 2px 2px 0 #000; pointer-events: none; z-index: 10; }
-        canvas { display: block; background: #87ceeb; } /* City Sky Blue */
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background: #1a1a1a; 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            touch-action: none;
+            user-select: none;
+        }
+        #game-ui { 
+            position: absolute; 
+            top: 20px; 
+            left: 20px; 
+            color: white; 
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.8); 
+            pointer-events: none; 
+            z-index: 10;
+        }
+        .stat { font-size: 1.2rem; margin-bottom: 5px; font-weight: bold; }
+        #timer { color: #58a6ff; }
+        #health-bar-container { 
+            width: 200px; height: 15px; background: #333; 
+            border: 2px solid #555; border-radius: 10px; overflow: hidden;
+        }
+        #health-bar-fill { width: 100%; height: 100%; background: #238636; transition: width 0.2s; }
+
+        canvas { display: block; background: linear-gradient(to bottom, #1e2a44, #3a4b76); }
         
         #joystick-container {
-            position: absolute; bottom: 40px; left: 40px;
-            width: 120px; height: 120px; background: rgba(255,255,255,0.2);
-            border-radius: 50%; touch-action: none;
+            position: absolute; 
+            bottom: 40px; 
+            left: 40px;
+            width: 100px; 
+            height: 100px; 
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 50%; 
+            touch-action: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         #joystick-knob {
-            position: absolute; top: 35px; left: 35px;
-            width: 50px; height: 50px; background: rgba(255,255,255,0.5);
+            width: 40px; 
+            height: 40px; 
+            background: rgba(255,255,255,0.4);
             border-radius: 50%;
+            pointer-events: none;
         }
         #message {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            color: gold; font-size: 32px; text-align: center; display: none; z-index: 20;
+            color: #ffd700; font-size: 2.5rem; text-align: center; display: none; z-index: 20;
+            text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+            font-weight: 900;
+            width: 80%;
+        }
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+            background: #238636;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            pointer-events: auto;
         }
     </style>
 </head>
 <body>
 
     <div id="game-ui">
-        <div>Time: <span id="timer">60</span>s</div>
-        <div>Health: <span id="health">100</span>%</div>
+        <div class="stat">TIME UNTIL BOSS: <span id="timer">60</span>s</div>
+        <div class="stat">TOAST INTEGRITY</div>
+        <div id="health-bar-container">
+            <div id="health-bar-fill"></div>
+        </div>
     </div>
 
-    <div id="message"></div>
+    <div id="message">
+        <div id="msg-text"></div>
+        <button id="restart-btn" onclick="location.reload()">RETRY</button>
+    </div>
 
     <div id="joystick-container">
         <div id="joystick-knob"></div>
@@ -44,167 +98,216 @@
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
 const timerEl = document.getElementById('timer');
-const healthEl = document.getElementById('health');
+const healthFill = document.getElementById('health-bar-fill');
 const messageEl = document.getElementById('message');
+const msgText = document.getElementById('msg-text');
+const joyContainer = document.getElementById('joystick-container');
+const joyKnob = document.getElementById('joystick-knob');
 
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
+function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+window.addEventListener('resize', resize);
+resize();
 
 // Game State
 let gameActive = true;
 let timeLeft = 60;
 let bossMode = false;
-let score = 0;
 
 // Player (Toast)
 const player = {
     x: canvas.width / 2,
     y: canvas.height / 2,
-    size: 40,
+    size: 45,
     hp: 100,
-    speed: 4,
+    speed: 5,
+    vx: 0,
+    vy: 0,
     angle: 0
 };
 
 // Dragon Sidekick
-const dragon = { x: 0, y: 0, offset: 50, angle: 0 };
+const dragon = { x: 0, y: 0, angle: 0 };
 
-// Game Objects
+// Objects
 let enemies = [];
 let flames = [];
 let dragonFire = [];
 let boss = null;
 
-// Joystick Logic
+// Controls Logic (Unified Pointer)
 let joystick = { active: false, x: 0, y: 0, startX: 0, startY: 0 };
-const knob = document.getElementById('joystick-knob');
+let keys = {};
 
-window.addEventListener('touchstart', e => {
-    const touch = e.touches[0];
-    const rect = document.getElementById('joystick-container').getBoundingClientRect();
-    if(touch.clientX > rect.left && touch.clientX < rect.right && touch.clientY > rect.top && touch.clientY < rect.bottom) {
-        joystick.active = true;
-        joystick.startX = rect.left + rect.width/2;
-        joystick.startY = rect.top + rect.height/2;
-    }
+window.addEventListener('keydown', e => keys[e.code] = true);
+window.addEventListener('keyup', e => keys[e.code] = false);
+
+joyContainer.addEventListener('pointerdown', e => {
+    joystick.active = true;
+    const rect = joyContainer.getBoundingClientRect();
+    joystick.startX = rect.left + rect.width / 2;
+    joystick.startY = rect.top + rect.height / 2;
+    joyContainer.setPointerCapture(e.pointerId);
 });
 
-window.addEventListener('touchmove', e => {
-    if(!joystick.active) return;
-    const touch = e.touches[0];
-    let dx = touch.clientX - joystick.startX;
-    let dy = touch.clientY - joystick.startY;
+window.addEventListener('pointermove', e => {
+    if (!joystick.active) return;
+    let dx = e.clientX - joystick.startX;
+    let dy = e.clientY - joystick.startY;
     const dist = Math.sqrt(dx*dx + dy*dy);
     const maxDist = 40;
     
-    if(dist > maxDist) {
+    if (dist > maxDist) {
         dx *= maxDist / dist;
         dy *= maxDist / dist;
     }
     
     joystick.x = dx / maxDist;
     joystick.y = dy / maxDist;
-    knob.style.transform = `translate(${dx}px, ${dy}px)`;
+    joyKnob.style.transform = `translate(${dx}px, ${dy}px)`;
 });
 
-window.addEventListener('touchend', () => {
+window.addEventListener('pointerup', e => {
     joystick.active = false;
-    joystick.x = 0; joystick.y = 0;
-    knob.style.transform = `translate(0, 0)`;
+    joystick.x = 0;
+    joystick.y = 0;
+    joyKnob.style.transform = `translate(0, 0)`;
 });
 
-// Helper: Spawn Enemy
 function spawnEnemy() {
-    if (bossMode) return;
+    if (!gameActive || (bossMode && !boss)) return;
     const side = Math.floor(Math.random() * 4);
     let x, y;
-    if(side === 0) { x = Math.random() * canvas.width; y = -50; }
-    else if(side === 1) { x = canvas.width + 50; y = Math.random() * canvas.height; }
-    else if(side === 2) { x = Math.random() * canvas.width; y = canvas.height + 50; }
-    else { x = -50; y = Math.random() * canvas.height; }
-    enemies.push({ x, y, size: 30, speed: 2, type: 'butter' });
+    const buffer = 50;
+    if(side === 0) { x = Math.random() * canvas.width; y = -buffer; }
+    else if(side === 1) { x = canvas.width + buffer; y = Math.random() * canvas.height; }
+    else if(side === 2) { x = Math.random() * canvas.width; y = canvas.height + buffer; }
+    else { x = -buffer; y = Math.random() * canvas.height; }
+    
+    enemies.push({ 
+        x, y, 
+        size: 30, 
+        speed: 1.5 + (60 - timeLeft) * 0.05, 
+        hp: 1 
+    });
 }
 
 function spawnBoss() {
     bossMode = true;
-    boss = { x: canvas.width/2, y: -100, size: 100, hp: 500, maxHp: 500 };
-    messageEl.innerHTML = "JELLY BOSS APPEARS!";
+    boss = { 
+        x: canvas.width / 2, 
+        y: -150, 
+        size: 120, 
+        hp: 1000, 
+        maxHp: 1000,
+        floatDir: 1
+    };
+    msgText.innerText = "THE JELLY BOSS HAS RISEN!";
     messageEl.style.display = "block";
-    setTimeout(() => messageEl.style.display = "none", 2000);
+    document.getElementById('restart-btn').style.display = "none";
+    setTimeout(() => { if(gameActive) messageEl.style.display = "none"; }, 3000);
 }
 
-// Main Loop
 function update() {
     if (!gameActive) return;
 
-    // Move Player
-    player.x += joystick.x * player.speed;
-    player.y += joystick.y * player.speed;
+    // 1. Movement Logic (Keyboard + Joystick)
+    let moveX = joystick.x;
+    let moveY = joystick.y;
+
+    if (keys['ArrowUp'] || keys['KeyW']) moveY = -1;
+    if (keys['ArrowDown'] || keys['KeyS']) moveY = 1;
+    if (keys['ArrowLeft'] || keys['KeyA']) moveX = -1;
+    if (keys['ArrowRight'] || keys['KeyD']) moveX = 1;
+
+    player.x += moveX * player.speed;
+    player.y += moveY * player.speed;
+
+    // Bounds
+    player.x = Math.max(player.size/2, Math.min(canvas.width - player.size/2, player.x));
+    player.y = Math.max(player.size/2, Math.min(canvas.height - player.size/2, player.y));
     
-    // Rotate Toast based on movement
-    if(Math.abs(joystick.x) > 0.1) player.angle = joystick.x * 0.5;
+    if (Math.abs(moveX) > 0.1) player.angle = moveX * 0.2;
 
-    // Dragon follows player
-    dragon.angle += 0.05;
-    dragon.x = player.x + Math.cos(dragon.angle) * 60;
-    dragon.y = player.y + Math.sin(dragon.angle) * 60;
+    // 2. Dragon Logic
+    dragon.angle += 0.08;
+    dragon.x = player.x + Math.cos(dragon.angle) * 70;
+    dragon.y = player.y + Math.sin(dragon.angle) * 70;
 
-    // Weapons: Player Flamethrower (Always shooting forward)
-    if(Math.random() > 0.5) {
-        flames.push({ x: player.x, y: player.y, vx: (Math.random()-0.5)*2, vy: -5 - Math.random()*5, life: 20 });
+    // 3. Weapons
+    // Player Flamethrower
+    if (Math.random() > 0.3) {
+        flames.push({ 
+            x: player.x, 
+            y: player.y - 10, 
+            vx: (Math.random() - 0.5) * 3, 
+            vy: -8 - Math.random() * 4, 
+            life: 25 
+        });
     }
 
-    // Dragon Fire (Auto-aim)
-    if(enemies.length > 0 && Math.random() > 0.9) {
+    // Dragon Fire (Auto-aim at nearest enemy)
+    if (enemies.length > 0 && Math.random() > 0.92) {
         const target = enemies[0];
-        const angle = Math.atan2(target.y - dragon.y, target.x - dragon.x);
-        dragonFire.push({ x: dragon.x, y: dragon.y, vx: Math.cos(angle)*7, vy: Math.sin(angle)*7, life: 40 });
+        const ang = Math.atan2(target.y - dragon.y, target.x - dragon.x);
+        dragonFire.push({ 
+            x: dragon.x, 
+            y: dragon.y, 
+            vx: Math.cos(ang) * 10, 
+            vy: Math.sin(ang) * 10, 
+            life: 50 
+        });
     }
 
-    // Update Projectiles
+    // 4. Update Entities
     flames.forEach((f, i) => { f.x += f.vx; f.y += f.vy; f.life--; if(f.life <= 0) flames.splice(i, 1); });
     dragonFire.forEach((f, i) => { f.x += f.vx; f.y += f.vy; f.life--; if(f.life <= 0) dragonFire.splice(i, 1); });
 
-    // Update Enemies
     enemies.forEach((en, i) => {
-        const angle = Math.atan2(player.y - en.y, player.x - en.x);
-        en.x += Math.cos(angle) * en.speed;
-        en.y += Math.sin(angle) * en.speed;
+        const ang = Math.atan2(player.y - en.y, player.x - en.x);
+        en.x += Math.cos(ang) * en.speed;
+        en.y += Math.sin(ang) * en.speed;
 
-        // Collision with player
-        const dist = Math.hypot(player.x - en.x, player.y - en.y);
-        if(dist < 30) {
-            player.hp -= 0.5;
-            healthEl.innerText = Math.ceil(player.hp);
+        // Player Collision
+        if (Math.hypot(player.x - en.x, player.y - en.y) < 35) {
+            player.hp -= 0.4;
+            healthFill.style.width = player.hp + "%";
         }
 
-        // Collision with fire
-        flames.concat(dragonFire).forEach(f => {
-            if(Math.hypot(f.x - en.x, f.y - en.y) < 25) {
+        // Fire Collision
+        [...flames, ...dragonFire].forEach(f => {
+            if (Math.hypot(f.x - en.x, f.y - en.y) < 25) {
                 enemies.splice(i, 1);
             }
         });
     });
 
-    // Boss Logic
-    if(boss) {
-        boss.y = Math.min(boss.y + 1, 150);
-        flames.concat(dragonFire).forEach((f, fi) => {
-            if(Math.hypot(f.x - boss.x, f.y - boss.y) < boss.size/2) {
+    // 5. Boss Logic
+    if (boss) {
+        boss.y = Math.min(boss.y + 2, 180);
+        boss.x += boss.floatDir * 2;
+        if (boss.x > canvas.width - 100 || boss.x < 100) boss.floatDir *= -1;
+
+        [...flames, ...dragonFire].forEach(f => {
+            if (Math.hypot(f.x - boss.x, f.y - boss.y) < boss.size / 2) {
                 boss.hp -= 2;
-                if(boss.hp <= 0) {
+                if (boss.hp <= 0) {
                     gameActive = false;
-                    messageEl.innerHTML = "YOU DEFEATED THE JELLY BOSS!<br>CITY SAVED!";
+                    msgText.innerText = "THE JELLY IS SPREAD! YOU WIN!";
                     messageEl.style.display = "block";
+                    document.getElementById('restart-btn').style.display = "inline-block";
                 }
             }
         });
     }
 
-    if(player.hp <= 0) {
+    if (player.hp <= 0) {
         gameActive = false;
-        messageEl.innerText = "YOU TURNED TO CRUMBS! GAME OVER.";
+        msgText.innerText = "YOU ARE TOAST! (Literally)";
         messageEl.style.display = "block";
+        document.getElementById('restart-btn').style.display = "inline-block";
     }
 
     draw();
@@ -214,68 +317,106 @@ function update() {
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Draw City Background (Simple Silhouettes)
-    ctx.fillStyle = "#444";
-    ctx.fillRect(0, canvas.height - 100, canvas.width, 100);
-    
-    // Draw Flames
-    ctx.fillStyle = "orange";
-    flames.forEach(f => ctx.fillRect(f.x, f.y, 8, 8));
-    ctx.fillStyle = "cyan";
-    dragonFire.forEach(f => ctx.fillRect(f.x, f.y, 10, 10));
+    // City Buildings
+    ctx.fillStyle = "#121a2b";
+    for(let i=0; i<canvas.width; i+=80) {
+        ctx.fillRect(i, canvas.height - 150, 60, 150);
+    }
 
-    // Draw Toast Hero
+    // Flames
+    flames.forEach(f => {
+        ctx.fillStyle = `rgba(255, ${Math.random()*150}, 0, ${f.life/25})`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 10, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    dragonFire.forEach(f => {
+        ctx.fillStyle = `rgba(0, 255, 255, ${f.life/50})`;
+        ctx.beginPath();
+        ctx.arc(f.x, f.y, 12, 0, Math.PI*2);
+        ctx.fill();
+    });
+
+    // Player (Toast)
     ctx.save();
     ctx.translate(player.x, player.y);
     ctx.rotate(player.angle);
-    ctx.fillStyle = "#DEB887"; // Bread color
-    ctx.fillRect(-20, -20, 40, 40);
-    ctx.strokeStyle = "#8B4513";
-    ctx.strokeRect(-20, -20, 40, 40);
+    // Shadow
+    ctx.fillStyle = "rgba(0,0,0,0.3)";
+    ctx.fillRect(-15, 20, 40, 10);
+    // Body
+    ctx.fillStyle = "#e3b066";
+    ctx.fillRect(-22, -22, 44, 44);
+    ctx.strokeStyle = "#8b4513";
+    ctx.lineWidth = 3;
+    ctx.strokeRect(-22, -22, 44, 44);
     // Eyes
     ctx.fillStyle = "black";
-    ctx.fillRect(-10, -10, 5, 5); ctx.fillRect(5, -10, 5, 5);
+    ctx.beginPath();
+    ctx.arc(-8, -5, 3, 0, Math.PI*2);
+    ctx.arc(8, -5, 3, 0, Math.PI*2);
+    ctx.fill();
     ctx.restore();
 
-    // Draw Dragon
-    ctx.fillStyle = "green";
+    // Dragon
+    ctx.fillStyle = "#4caf50";
     ctx.beginPath();
-    ctx.arc(dragon.x, dragon.y, 15, 0, Math.PI*2);
+    ctx.arc(dragon.x, dragon.y, 18, 0, Math.PI*2);
     ctx.fill();
+    ctx.fillStyle = "white";
+    ctx.fillRect(dragon.x - 5, dragon.y - 5, 4, 4);
+    ctx.fillRect(dragon.x + 1, dragon.y - 5, 4, 4);
 
-    // Draw Butter Enemies
-    ctx.fillStyle = "yellow";
+    // Butter Enemies
     enemies.forEach(en => {
-        ctx.fillRect(en.x - 15, en.y - 15, 30, 20);
-        ctx.strokeStyle = "#DAA520";
-        ctx.strokeRect(en.x - 15, en.y - 15, 30, 20);
+        ctx.fillStyle = "#fff176";
+        ctx.fillRect(en.x - 15, en.y - 12, 30, 24);
+        ctx.strokeStyle = "#fbc02d";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(en.x - 15, en.y - 12, 30, 24);
+        // Angry Eyes
+        ctx.fillStyle = "black";
+        ctx.beginPath(); ctx.moveTo(en.x-10, en.y-5); ctx.lineTo(en.x-2, en.y); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(en.x+10, en.y-5); ctx.lineTo(en.x+2, en.y); ctx.stroke();
     });
 
-    // Draw Boss
-    if(boss) {
-        ctx.fillStyle = "rgba(255, 0, 255, 0.8)";
+    // Jelly Boss
+    if (boss) {
+        ctx.fillStyle = "rgba(156, 39, 176, 0.9)";
         ctx.beginPath();
         ctx.arc(boss.x, boss.y, boss.size/2, 0, Math.PI*2);
         ctx.fill();
-        // Boss HP bar
-        ctx.fillStyle = "red";
-        ctx.fillRect(boss.x - 50, boss.y - 70, 100, 10);
-        ctx.fillStyle = "lime";
-        ctx.fillRect(boss.x - 50, boss.y - 70, (boss.hp/boss.maxHp)*100, 10);
+        // Eyes
+        ctx.fillStyle = "white";
+        ctx.beginPath();
+        ctx.arc(boss.x - 20, boss.y - 10, 15, 0, Math.PI*2);
+        ctx.arc(boss.x + 20, boss.y - 10, 15, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.beginPath();
+        ctx.arc(boss.x - 20, boss.y - 10, 7, 0, Math.PI*2);
+        ctx.arc(boss.x + 20, boss.y - 10, 7, 0, Math.PI*2);
+        ctx.fill();
+
+        // HP Bar
+        ctx.fillStyle = "#333";
+        ctx.fillRect(boss.x - 60, boss.y - 90, 120, 12);
+        ctx.fillStyle = "#e91e63";
+        ctx.fillRect(boss.x - 60, boss.y - 90, (boss.hp/boss.maxHp) * 120, 12);
     }
 }
 
-// Timer Logic
+// Timing
 setInterval(() => {
-    if(gameActive && timeLeft > 0) {
+    if(gameActive && !bossMode) {
         timeLeft--;
         timerEl.innerText = timeLeft;
-        if(timeLeft === 0) spawnBoss();
+        if(timeLeft <= 0) spawnBoss();
     }
 }, 1000);
 
-// Enemy Spawner
-setInterval(spawnEnemy, 1000);
+setInterval(spawnEnemy, 800);
 
 update();
 </script>
